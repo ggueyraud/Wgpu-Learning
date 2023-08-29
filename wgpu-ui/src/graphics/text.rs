@@ -2,8 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::Context;
 
-use super::{font::Font, Drawable, Vertex, Transformable};
-use glam::Vec2;
+use super::{font::Font, Drawable, Vertex};
 use rusttype::{gpu_cache::Cache, point, vector, PositionedGlyph, Rect, Scale};
 use wgpu::util::DeviceExt;
 
@@ -49,7 +48,6 @@ fn layout_paragraph<'a>(
 }
 
 pub struct Text {
-    transformable: Transformable,
     text: String,
     character_size: u8,
     vertex_buffer: wgpu::Buffer,
@@ -225,7 +223,6 @@ impl Text {
             vertex_buffer,
             num_vertices,
             bind_group,
-            transformable: Transformable::new()
         }
     }
 }

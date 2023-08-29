@@ -1,11 +1,6 @@
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::fs;
 
 use anyhow::Result;
-
-use crate::Context;
 
 pub struct Font<'a> {
     pub internal: rusttype::Font<'a>,

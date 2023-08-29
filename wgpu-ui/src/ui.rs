@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use crate::graphics::Drawable;
+use crate::graphics::text::Text;
+use crate::graphics::{Drawable, Transformable, BLUE, GREEN, RED};
 use crate::{math::pixels_to_clip, Context, Vertex};
 use glam::Vec2;
 use wgpu::{util::DeviceExt, RenderPass};
-use winit::event::{ElementState, WindowEvent};
+use winit::event::{ElementState, MouseButton, WindowEvent};
 
 pub struct Ui {
     widgets: Vec<Box<dyn Widget>>,
@@ -36,12 +37,10 @@ impl Ui {
     }
 }
 
-pub trait Widget: Drawable {
+pub trait Widget: Drawable + Transformable {
     fn process_events(&mut self, event: &WindowEvent);
 
-    fn update(&mut self, dt: f32) {
-        return;
-    }
+    fn update(&mut self, _dt: f32) {}
 
     fn position(&self) -> &Vec2;
 }
@@ -54,7 +53,7 @@ enum ButtonState {
 
 pub struct Button {
     context: Arc<Mutex<Context>>,
-    text: String,
+    // label: Text,
     position: Vec2,
     size: Vec2,
     vertex_buffer: wgpu::Buffer,
@@ -64,30 +63,74 @@ pub struct Button {
     mp: Vec2,
 }
 
+impl Transformable for Button {
+    fn position(&self) -> Vec2 {
+        self.position
+    }
+
+    fn set_position(&mut self, position: Vec2) {
+        self.position = position;
+
+        let c = self.context.lock().unwrap();
+
+        let screen_size = { (c.config.width as f32, c.config.height as f32) };
+
+        self.vertices
+            .iter_mut()
+            .enumerate()
+            .for_each(|(index, vertex)| match index {
+                0 => {
+                    vertex.position =
+                        pixels_to_clip(position.x, position.y, screen_size.0, screen_size.1);
+                }
+                1 => {
+                    vertex.position =
+                        pixels_to_clip(position.x, position.y + 50., screen_size.0, screen_size.1);
+                }
+                2 => {
+                    vertex.position = pixels_to_clip(
+                        position.x + 100.,
+                        position.y + 50.,
+                        screen_size.0,
+                        screen_size.1,
+                    );
+                }
+                3 => {
+                    vertex.position =
+                        pixels_to_clip(position.x + 100., position.y, screen_size.0, screen_size.1);
+                }
+                _ => (),
+            });
+
+        c.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
+}
+
 impl Button {
     pub fn new(text: &str, context: Arc<Mutex<Context>>) -> Self {
         let mut vertices = Vec::new();
-        let color = [1., 0., 0.];
+        let color: [f32; 3] = RED.into();
         let screen_size = {
             let c = context.lock().unwrap();
             (c.config.width as f32, c.config.height as f32)
         };
-        let position = (50., 50.);
+        let position = Vec2::default();
 
         vertices.push(Vertex {
-            position: pixels_to_clip(position.0, position.1, screen_size.0, screen_size.1),
+            position: pixels_to_clip(position.x, position.y, screen_size.0, screen_size.1),
             color,
             tex_coords: [-1.0, -1.0],
         });
         vertices.push(Vertex {
-            position: pixels_to_clip(position.0, position.1 + 50., screen_size.0, screen_size.1),
+            position: pixels_to_clip(position.x, position.y + 50., screen_size.0, screen_size.1),
             color,
             tex_coords: [-1.0, -1.0],
         });
         vertices.push(Vertex {
             position: pixels_to_clip(
-                position.0 + 100.,
-                position.1 + 50.,
+                position.x + 100.,
+                position.y + 50.,
                 screen_size.0,
                 screen_size.1,
             ),
@@ -95,7 +138,7 @@ impl Button {
             tex_coords: [-1.0, -1.0],
         });
         vertices.push(Vertex {
-            position: pixels_to_clip(position.0 + 100., position.1, screen_size.0, screen_size.1),
+            position: pixels_to_clip(position.x + 100., position.y, screen_size.0, screen_size.1),
             color,
             tex_coords: [-1.0, -1.0],
         });
@@ -112,10 +155,10 @@ impl Button {
         };
 
         Self {
-            text: text.to_string(),
+            // text: Text::new(context.clone(), text, , 30),
             vertices,
             context,
-            position: position.into(),
+            position,
             size: (100., 50.).into(),
             vertex_buffer,
             color,
@@ -177,21 +220,25 @@ impl Widget for Button {
                 self.mp = (x, y).into();
 
                 if inside(x, y) {
-                    self.set_fill_color([0., 1., 0.]);
+                    self.set_fill_color(GREEN.into());
                 } else {
-                    self.set_fill_color([1., 0., 0.]);
+                    self.set_fill_color(RED.into());
                 }
             }
-            WindowEvent::MouseInput { state, button, .. } => {
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
                 if inside(self.mp.x, self.mp.y) {
                     match *state {
                         ElementState::Pressed => {
                             // s = ButtonState::Click;
                             Self::click();
-                            self.set_fill_color([0., 0., 1.]);
+                            self.set_fill_color(BLUE.into());
                         }
                         ElementState::Released => {
-                            self.set_fill_color([0., 1., 0.]);
+                            self.set_fill_color(RED.into());
                         }
                     }
                 }

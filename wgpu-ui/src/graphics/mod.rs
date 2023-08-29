@@ -1,30 +1,31 @@
+use derive_more::From;
 use glam::Vec2;
-
 pub mod font;
 pub mod text;
+
+#[derive(From)]
+pub struct Color(u8, u8, u8);
+
+impl Into<[f32; 3]> for Color {
+    fn into(self) -> [f32; 3] {
+        [self.0 as f32, self.1 as f32, self.2 as f32]
+    }
+}
+
+#[allow(dead_code)]
+pub const BLACK: Color = Color(0, 0, 0);
+pub const WHITE: Color = Color(255, 255, 255);
+pub const RED: Color = Color(255, 0, 0);
+pub const GREEN: Color = Color(0, 255, 0);
+pub const BLUE: Color = Color(0, 0, 255);
 
 pub trait Drawable {
     fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>);
 }
 
-pub struct Transformable {
-    position: Vec2
-}
-
-impl Transformable {
-    pub fn new() -> Self {
-        Self {
-            position: Vec2::default()
-        }
-    }
-
-    pub fn set_position(&mut self, position: Vec2) {
-        self.position = position;
-    }
-
-    pub fn position(&self) -> &Vec2 {
-        &self.position
-    }
+pub trait Transformable {
+    fn set_position(&mut self, position: Vec2);
+    fn position(&self) -> Vec2;
 }
 
 #[repr(C)]

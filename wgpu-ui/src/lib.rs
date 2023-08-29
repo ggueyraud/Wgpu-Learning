@@ -1,4 +1,8 @@
-use graphics::{text::{TextBrush, Text}, Vertex, font::Font, Drawable};
+use graphics::{
+    font::Font,
+    text::{Text, TextBrush},
+    Drawable, Transformable, Vertex,
+};
 use std::{
     sync::{Arc, Mutex},
     time::Instant,
@@ -139,10 +143,18 @@ impl State {
         }));
 
         let font = Font::new("src/Roboto.ttf").unwrap();
-        let text = Text::new(context.clone(), "Learn wgpu", &font, 30., text_brush.bind_group_layout());
+        let text = Text::new(
+            context.clone(),
+            "Learn wgpu",
+            &font,
+            30.,
+            text_brush.bind_group_layout(),
+        );
 
         let mut ui = Ui::new();
-        ui.add(Box::new(Button::new("Lorem ipsum", context.clone())));
+        let mut btn = Button::new("Lorem ipsum", context.clone());
+        btn.set_position(glam::Vec2 { x: 0., y: 200. });
+        ui.add(Box::new(btn));
 
         Self {
             surface,
@@ -152,7 +164,7 @@ impl State {
             ui,
             context,
             // font,
-            text
+            text,
         }
     }
 
@@ -215,7 +227,6 @@ impl State {
 
             self.text_brush.draw(&mut render_pass);
             self.text.draw(&mut render_pass);
-
         }
 
         context.queue.submit(std::iter::once(encoder.finish()));
