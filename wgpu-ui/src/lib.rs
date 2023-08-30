@@ -1,9 +1,12 @@
+use assets::Assets;
 use graphics::{
     font::Font,
     text::{Text, TextBrush},
     Drawable, Transformable, Vertex,
 };
+use once_cell::sync::{Lazy, OnceCell};
 use std::{
+    path::Path,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -15,11 +18,21 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+mod assets;
 mod graphics;
 mod math;
 mod ui;
 
 const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
+
+static RENDER_PIPELINE: OnceCell<wgpu::RenderPipeline> = OnceCell::new();
+static TEXT_BRUSH: OnceCell<TextBrush> = OnceCell::new();
+static ASSETS: Lazy<Assets> = Lazy::new(|| {
+    let mut assets = Assets::new();
+    assets.load_font(Path::new("src/Roboto.ttf"));
+
+    assets
+});
 
 pub struct Context {
     pub device: wgpu::Device,
@@ -31,9 +44,7 @@ struct State {
     context: Arc<Mutex<Context>>,
     surface: wgpu::Surface,
     index_buffer: wgpu::Buffer,
-    render_pipeline: wgpu::RenderPipeline,
-    text_brush: TextBrush,
-    text: Text,
+    // text: Text,
     ui: Ui,
 }
 
@@ -136,20 +147,25 @@ impl State {
 
         let text_brush = TextBrush::new(&device, config.format);
 
+        TEXT_BRUSH.set(text_brush);
+
         let context = Arc::new(Mutex::new(Context {
             config,
             device,
             queue,
+            // text_brush,
+            // render_pipeline
         }));
 
-        let font = Font::new("src/Roboto.ttf").unwrap();
-        let text = Text::new(
-            context.clone(),
-            "Learn wgpu",
-            &font,
-            30.,
-            text_brush.bind_group_layout(),
-        );
+        RENDER_PIPELINE.set(render_pipeline);
+
+        // let font = Font::new("src/Roboto.ttf").unwrap();
+        // let text = Text::new(
+        //     context.clone(),
+        //     "Learn wgpu",
+        //     &font,
+        //     30.
+        // );
 
         let mut ui = Ui::new();
         let mut btn = Button::new("Lorem ipsum", context.clone());
@@ -159,12 +175,12 @@ impl State {
         Self {
             surface,
             index_buffer,
-            render_pipeline,
-            text_brush,
+            // render_pipeline,
+            // text_brush,
             ui,
             context,
             // font,
-            text,
+            // text,
         }
     }
 
@@ -220,13 +236,16 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            // render_pass.set_pipeline(&context.render_pipeline);
+            render_pass.set_pipeline(RENDER_PIPELINE.get().unwrap());
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             self.ui.draw(&mut render_pass);
 
-            self.text_brush.draw(&mut render_pass);
-            self.text.draw(&mut render_pass);
+            // context.text_brush.draw(&mut render_pass);
+            // TEXT_BRUSH.get().unwrap().draw(&mut render_pass);
+            render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
+            // self.text.draw(&mut render_pass);
         }
 
         context.queue.submit(std::iter::once(encoder.finish()));

@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use anyhow::Result;
 
@@ -7,8 +7,8 @@ pub struct Font<'a> {
 }
 
 impl<'a> Font<'a> {
-    pub fn new(filename: &str) -> Result<Self> {
-        let bytes = fs::read(filename)?;
+    pub fn new(path: &Path) -> Result<Self> {
+        let bytes = fs::read(path)?;
         let font = rusttype::Font::try_from_vec(bytes).unwrap();
 
         Ok(Self { internal: font })

@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::graphics::text::Text;
 use crate::graphics::{Drawable, Transformable, BLUE, GREEN, RED};
 use crate::{math::pixels_to_clip, Context, Vertex};
+use crate::{ASSETS, TEXT_BRUSH};
 use glam::Vec2;
 use wgpu::{util::DeviceExt, RenderPass};
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -32,8 +33,8 @@ impl Ui {
         self.widgets.iter_mut().for_each(|w| w.update(dt));
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
-        self.widgets.iter().for_each(|w| w.draw(render_pass));
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
+        self.widgets.iter_mut().for_each(|w| w.draw(render_pass));
     }
 }
 
@@ -51,9 +52,9 @@ enum ButtonState {
     Click,
 }
 
-pub struct Button {
+pub struct Button<'a> {
     context: Arc<Mutex<Context>>,
-    // label: Text,
+    label: Text<'a>,
     position: Vec2,
     size: Vec2,
     vertex_buffer: wgpu::Buffer,
@@ -63,13 +64,14 @@ pub struct Button {
     mp: Vec2,
 }
 
-impl Transformable for Button {
+impl<'a> Transformable for Button<'a> {
     fn position(&self) -> Vec2 {
         self.position
     }
 
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
+        // self.label.set_position(position);
 
         let c = self.context.lock().unwrap();
 
@@ -107,7 +109,7 @@ impl Transformable for Button {
     }
 }
 
-impl Button {
+impl<'a> Button<'a> {
     pub fn new(text: &str, context: Arc<Mutex<Context>>) -> Self {
         let mut vertices = Vec::new();
         let color: [f32; 3] = RED.into();
@@ -154,6 +156,14 @@ impl Button {
                 })
         };
 
+        let mut label = Text::new(
+            context.clone(),
+            text,
+            ASSETS.get_font("Roboto.ttf").unwrap(),
+            30.,
+        );
+        // label.set_position((200., 200.).into());
+
         Self {
             // text: Text::new(context.clone(), text, , 30),
             vertices,
@@ -162,13 +172,15 @@ impl Button {
             size: (100., 50.).into(),
             vertex_buffer,
             color,
+            label,
             state: ButtonState::None,
             mp: (0., 0.).into(),
         }
     }
 
-    fn click() {
-        println!("Click event");
+    fn click(&mut self) {
+        // println!("Click event");
+        self.set_position(Vec2 { x: 100., y: 100. });
     }
 
     fn set_fill_color(&mut self, color: [f32; 3]) {
@@ -180,7 +192,7 @@ impl Button {
     }
 }
 
-impl Widget for Button {
+impl<'a> Widget for Button<'a> {
     fn position(&self) -> &Vec2 {
         &self.position
     }
@@ -233,8 +245,7 @@ impl Widget for Button {
                 if inside(self.mp.x, self.mp.y) {
                     match *state {
                         ElementState::Pressed => {
-                            // s = ButtonState::Click;
-                            Self::click();
+                            self.click();
                             self.set_fill_color(BLUE.into());
                         }
                         ElementState::Released => {
@@ -250,9 +261,14 @@ impl Widget for Button {
     }
 }
 
-impl Drawable for Button {
-    fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+impl<'a> Drawable for Button<'a> {
+    fn draw<'b>(&'b mut self, render_pass: &mut RenderPass<'b>) {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);
+
+        render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
+        self.label.draw(render_pass);
+        // self.label.draw(render_pass);
+        // render_pass.set_pipeline(ctx.text_brush.render_pipeline());
     }
 }

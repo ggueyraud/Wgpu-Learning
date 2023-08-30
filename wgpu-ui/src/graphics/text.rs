@@ -1,10 +1,17 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
-use crate::Context;
+use crate::{math::pixels_to_clip, Context, TEXT_BRUSH};
 
-use super::{font::Font, Drawable, Vertex};
+use super::{font::Font, Drawable, Transformable, Vertex};
+use glam::Vec2;
 use rusttype::{gpu_cache::Cache, point, vector, PositionedGlyph, Rect, Scale};
 use wgpu::util::DeviceExt;
+
+const TEXTURE_WIDTH: u32 = 512;
+const TEXTURE_HEIGHT: u32 = 512;
 
 fn layout_paragraph<'a>(
     font: &rusttype::Font<'a>,
@@ -47,31 +54,147 @@ fn layout_paragraph<'a>(
     result
 }
 
-pub struct Text {
+fn generate_vertices(
+    queue: &wgpu::Queue,
+    texture: &wgpu::Texture,
+    font: &Font,
+    text: &str,
+    character_size: f32,
+    position: Vec2,
+    size: (f32, f32),
+) -> Vec<Vertex> {
+    let (width, height) = (TEXTURE_WIDTH, TEXTURE_HEIGHT);
+    let mut cache = Cache::builder().dimensions(width, height).build();
+    println!("Size: {}", size.0 as u32);
+    let glyphs = layout_paragraph(
+        &font.internal,
+        Scale::uniform(character_size * 1.),
+        size.0 as u32,
+        text,
+    );
+
+    for glyph in &glyphs {
+        cache.queue_glyph(0, glyph.clone());
+    }
+
+    cache
+        .cache_queued(|rect, data| {
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: rect.min.x,
+                        y: rect.min.y,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(rect.width()),
+                    rows_per_image: Some(rect.height()),
+                },
+                wgpu::Extent3d {
+                    width: rect.width(),
+                    height: rect.height(),
+                    depth_or_array_layers: 1,
+                },
+            );
+        })
+        .unwrap();
+
+    let color = [1.0, 1.0, 1.0];
+    // let origin = pixels_to_clip(position.x, position.y, size.0, size.1);
+    // let origin = point(origin[0], origin[1]);
+    let origin = point(0., 0.);
+
+    let vertices = glyphs
+        .iter()
+        .filter_map(|g| cache.rect_for(0, g).ok().flatten())
+        .flat_map(|(uv_rect, screen_rect)| {
+            // TODO : see how I can do to set the position to a specific screen coordinate (probably need to refactor this calculation)
+            let gl_rect = Rect {
+                min: origin
+                    // This convert into screen coordinate
+                    + (vector(
+                        screen_rect.min.x as f32 / size.0 as f32 - 0.5,
+                        1.0 - screen_rect.min.y as f32 / size.1 as f32 - 0.5,
+                    )) * 2.0,
+                max: origin
+                    + (vector(
+                        screen_rect.max.x as f32 / size.0 as f32 - 0.5,
+                        1.0 - screen_rect.max.y as f32 / size.1 as f32 - 0.5,
+                    )) * 2.0,
+            };
+            println!("{screen_rect:?}");
+
+            vec![
+                Vertex {
+                    position: [gl_rect.min.x, gl_rect.max.y],
+                    tex_coords: [uv_rect.min.x, uv_rect.max.y],
+                    color,
+                },
+                Vertex {
+                    position: [gl_rect.min.x, gl_rect.min.y],
+                    tex_coords: [uv_rect.min.x, uv_rect.min.y],
+                    color,
+                },
+                Vertex {
+                    position: [gl_rect.max.x, gl_rect.min.y],
+                    tex_coords: [uv_rect.max.x, uv_rect.min.y],
+                    color,
+                },
+                Vertex {
+                    position: [gl_rect.max.x, gl_rect.min.y],
+                    tex_coords: [uv_rect.max.x, uv_rect.min.y],
+                    color,
+                },
+                Vertex {
+                    position: [gl_rect.max.x, gl_rect.max.y],
+                    tex_coords: [uv_rect.max.x, uv_rect.max.y],
+                    color,
+                },
+                Vertex {
+                    position: [gl_rect.min.x, gl_rect.max.y],
+                    tex_coords: [uv_rect.min.x, uv_rect.max.y],
+                    color,
+                },
+            ]
+        })
+        .collect();
+
+    vertices
+}
+
+pub struct Text<'a> {
+    context: Arc<Mutex<Context>>,
     text: String,
-    character_size: u8,
+    character_size: f32,
     vertex_buffer: wgpu::Buffer,
     num_vertices: u32,
     bind_group: wgpu::BindGroup,
+    position: Vec2,
+    geometry_need_update: bool,
+    vertices: Vec<Vertex>,
+    texture: wgpu::Texture,
+    font: &'a Font<'a>,
 }
 
-impl Text {
+impl<'a> Text<'a> {
     pub fn new(
         context: Arc<Mutex<Context>>,
         text: &str,
-        font: &Font,
+        font: &'a Font,
         character_size: f32,
-        bind_group_layout: &wgpu::BindGroupLayout,
+        // bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let c = context.lock().unwrap();
 
-        let scale: f32 = 1.; // TODO : remplace with window scale factor
-
-        let (width, height) = (512, 512);
-        let mut cache = Cache::builder().dimensions(width, height).build();
         let texture_size = wgpu::Extent3d {
-            width,
-            height,
+            width: TEXTURE_WIDTH,
+            height: TEXTURE_HEIGHT,
             depth_or_array_layers: 1,
         };
         let diffuse_texture = c.device.create_texture(&wgpu::TextureDescriptor {
@@ -96,114 +219,18 @@ impl Text {
             ..Default::default()
         });
 
-        let glyphs = layout_paragraph(
-            &font.internal,
-            Scale::uniform(character_size * scale),
-            c.config.width,
-            text,
+        let vertices = generate_vertices(
+            &c.queue,
+            &diffuse_texture,
+            &font,
+            &text,
+            character_size,
+            Vec2::default(),
+            (c.config.width as f32, c.config.height as f32),
         );
 
-        for glyph in &glyphs {
-            cache.queue_glyph(0, glyph.clone());
-        }
-
-        cache
-            .cache_queued(|rect, data| {
-                c.queue.write_texture(
-                    wgpu::ImageCopyTexture {
-                        texture: &diffuse_texture,
-                        mip_level: 0,
-                        origin: wgpu::Origin3d {
-                            x: rect.min.x,
-                            y: rect.min.y,
-                            z: 0,
-                        },
-                        aspect: wgpu::TextureAspect::All,
-                    },
-                    data,
-                    wgpu::ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(rect.width()),
-                        rows_per_image: Some(rect.height()),
-                    },
-                    wgpu::Extent3d {
-                        width: rect.width(),
-                        height: rect.height(),
-                        depth_or_array_layers: 1,
-                    },
-                );
-            })
-            .unwrap();
-
-        let (vertex_buffer, num_vertices) = {
-            let color = [1.0, 1.0, 1.0];
-            let origin = point(0.0, 0.0);
-
-            let vertices: Vec<Vertex> = glyphs
-                .iter()
-                .filter_map(|g| cache.rect_for(0, g).ok().flatten())
-                .flat_map(|(uv_rect, screen_rect)| {
-                    let gl_rect = Rect {
-                        min: origin
-                            + (vector(
-                                screen_rect.min.x as f32 / c.config.width as f32 - 0.5,
-                                1.0 - screen_rect.min.y as f32 / c.config.height as f32 - 0.5,
-                            )) * 2.0,
-                        max: origin
-                            + (vector(
-                                screen_rect.max.x as f32 / c.config.width as f32 - 0.5,
-                                1.0 - screen_rect.max.y as f32 / c.config.height as f32 - 0.5,
-                            )) * 2.0,
-                    };
-
-                    vec![
-                        Vertex {
-                            position: [gl_rect.min.x, gl_rect.max.y],
-                            tex_coords: [uv_rect.min.x, uv_rect.max.y],
-                            color,
-                        },
-                        Vertex {
-                            position: [gl_rect.min.x, gl_rect.min.y],
-                            tex_coords: [uv_rect.min.x, uv_rect.min.y],
-                            color,
-                        },
-                        Vertex {
-                            position: [gl_rect.max.x, gl_rect.min.y],
-                            tex_coords: [uv_rect.max.x, uv_rect.min.y],
-                            color,
-                        },
-                        Vertex {
-                            position: [gl_rect.max.x, gl_rect.min.y],
-                            tex_coords: [uv_rect.max.x, uv_rect.min.y],
-                            color,
-                        },
-                        Vertex {
-                            position: [gl_rect.max.x, gl_rect.max.y],
-                            tex_coords: [uv_rect.max.x, uv_rect.max.y],
-                            color,
-                        },
-                        Vertex {
-                            position: [gl_rect.min.x, gl_rect.max.y],
-                            tex_coords: [uv_rect.min.x, uv_rect.max.y],
-                            color,
-                        },
-                    ]
-                })
-                .collect();
-
-            (
-                c.device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Vertex buffer"),
-                        contents: bytemuck::cast_slice(&vertices),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    }),
-                vertices.len() as u32,
-            )
-        };
-
         let bind_group = c.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: bind_group_layout,
+            layout: &TEXT_BRUSH.get().unwrap().bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -217,21 +244,77 @@ impl Text {
             label: Some("diffuse_bind_group"),
         });
 
+        let vertex_buffer = c
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
         Self {
             text: text.to_string(),
-            character_size: 30,
+            character_size: 30.,
             vertex_buffer,
-            num_vertices,
+            num_vertices: vertices.len() as _,
             bind_group,
+            position: Vec2::default(),
+            geometry_need_update: false,
+            vertices: Vec::new(),
+            texture: diffuse_texture,
+            font,
+            context: context.clone(),
         }
+    }
+
+    fn ensure_geometry_update(&mut self) {
+        if !self.geometry_need_update {
+            return;
+        }
+
+        self.geometry_need_update = false;
+        self.vertices.clear();
+
+        let ctx = self.context.lock().unwrap();
+
+        self.vertices = generate_vertices(
+            &ctx.queue,
+            &self.texture,
+            &self.font,
+            &self.text,
+            self.character_size,
+            self.position,
+            (ctx.config.width as f32, ctx.config.height as f32),
+        );
+        self.num_vertices = self.vertices.len() as _;
+
+        // let ctx = self.context.lock().unwrap();
+        ctx.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 }
 
-impl Drawable for Text {
-    fn draw<'b>(&'b self, render_pass: &mut wgpu::RenderPass<'b>) {
+impl<'a> Drawable for Text<'a> {
+    fn draw<'b>(&'b mut self, render_pass: &mut wgpu::RenderPass<'b>) {
+        // TODO : call ensure_geometry_upate
+
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..self.num_vertices, 0..1);
+    }
+}
+
+impl<'a> Transformable for Text<'a> {
+    fn position(&self) -> glam::Vec2 {
+        self.position
+    }
+
+    fn set_position(&mut self, position: Vec2) {
+        self.position = position;
+        self.geometry_need_update = true;
+
+        // TODO : in future this should not be manually call after data alteration
+        self.ensure_geometry_update();
     }
 }
 
@@ -319,6 +402,10 @@ impl TextBrush {
 
     pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
+    }
+
+    pub fn render_pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.render_pipeline
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
