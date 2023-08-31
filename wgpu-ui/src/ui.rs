@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::graphics::text::Text;
 use crate::graphics::{Drawable, Transformable, BLUE, GREEN, RED};
+use crate::ASSETS;
 use crate::{math::pixels_to_clip, Context, Vertex};
-use crate::{ASSETS, TEXT_BRUSH};
-use glam::Vec2;
+use glam::{Vec2, Vec4};
 use wgpu::{util::DeviceExt, RenderPass};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
@@ -52,16 +52,17 @@ enum ButtonState {
     Click,
 }
 
+// TODO : replace all about vertex by RectangleShape
 pub struct Button<'a> {
     context: Arc<Mutex<Context>>,
     label: Text<'a>,
     position: Vec2,
     size: Vec2,
     vertex_buffer: wgpu::Buffer,
-    color: [f32; 3],
     state: ButtonState,
     vertices: Vec<Vertex>,
     mp: Vec2,
+    paddings: Vec4,
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -71,7 +72,7 @@ impl<'a> Transformable for Button<'a> {
 
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
-        // self.label.set_position(position);
+        self.label.set_position(position);
 
         let c = self.context.lock().unwrap();
 
@@ -86,20 +87,28 @@ impl<'a> Transformable for Button<'a> {
                         pixels_to_clip(position.x, position.y, screen_size.0, screen_size.1);
                 }
                 1 => {
-                    vertex.position =
-                        pixels_to_clip(position.x, position.y + 50., screen_size.0, screen_size.1);
+                    vertex.position = pixels_to_clip(
+                        position.x,
+                        position.y + self.size.y,
+                        screen_size.0,
+                        screen_size.1,
+                    );
                 }
                 2 => {
                     vertex.position = pixels_to_clip(
-                        position.x + 100.,
-                        position.y + 50.,
+                        position.x + self.size.x,
+                        position.y + self.size.y,
                         screen_size.0,
                         screen_size.1,
                     );
                 }
                 3 => {
-                    vertex.position =
-                        pixels_to_clip(position.x + 100., position.y, screen_size.0, screen_size.1);
+                    vertex.position = pixels_to_clip(
+                        position.x + self.size.x,
+                        position.y,
+                        screen_size.0,
+                        screen_size.1,
+                    );
                 }
                 _ => (),
             });
@@ -119,20 +128,23 @@ impl<'a> Button<'a> {
         };
         let position = Vec2::default();
 
+        let label = Text::new(
+            context.clone(),
+            text,
+            ASSETS.get_font("Roboto.ttf").unwrap(),
+            30.,
+        );
+        let label_bounds = label.bounds();
+
         vertices.push(Vertex {
             position: pixels_to_clip(position.x, position.y, screen_size.0, screen_size.1),
             color,
             tex_coords: [-1.0, -1.0],
         });
         vertices.push(Vertex {
-            position: pixels_to_clip(position.x, position.y + 50., screen_size.0, screen_size.1),
-            color,
-            tex_coords: [-1.0, -1.0],
-        });
-        vertices.push(Vertex {
             position: pixels_to_clip(
-                position.x + 100.,
-                position.y + 50.,
+                position.x,
+                position.y + label_bounds.height,
                 screen_size.0,
                 screen_size.1,
             ),
@@ -140,7 +152,22 @@ impl<'a> Button<'a> {
             tex_coords: [-1.0, -1.0],
         });
         vertices.push(Vertex {
-            position: pixels_to_clip(position.x + 100., position.y, screen_size.0, screen_size.1),
+            position: pixels_to_clip(
+                position.x + label_bounds.width,
+                position.y + label_bounds.height,
+                screen_size.0,
+                screen_size.1,
+            ),
+            color,
+            tex_coords: [-1.0, -1.0],
+        });
+        vertices.push(Vertex {
+            position: pixels_to_clip(
+                position.x + label_bounds.width,
+                position.y,
+                screen_size.0,
+                screen_size.1,
+            ),
             color,
             tex_coords: [-1.0, -1.0],
         });
@@ -156,25 +183,16 @@ impl<'a> Button<'a> {
                 })
         };
 
-        let mut label = Text::new(
-            context.clone(),
-            text,
-            ASSETS.get_font("Roboto.ttf").unwrap(),
-            30.,
-        );
-        // label.set_position((200., 200.).into());
-
         Self {
-            // text: Text::new(context.clone(), text, , 30),
             vertices,
             context,
             position,
-            size: (100., 50.).into(),
+            size: (label_bounds.width, label_bounds.height).into(),
             vertex_buffer,
-            color,
             label,
             state: ButtonState::None,
             mp: (0., 0.).into(),
+            paddings: (0., 0., 0., 0.).into(),
         }
     }
 
@@ -189,6 +207,10 @@ impl<'a> Button<'a> {
         self.vertices.iter_mut().for_each(|v| v.color = color);
         c.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
+
+    pub fn set_paddings(&mut self, paddings: Vec4) {
+        self.paddings = paddings;
     }
 }
 
@@ -229,9 +251,10 @@ impl<'a> Widget for Button<'a> {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
-                self.mp = (x, y).into();
+                self.mp = (x.round(), y.round()).into();
+                println!("{}", self.mp);
 
-                if inside(x, y) {
+                if inside(self.mp.x, self.mp.y) {
                     self.set_fill_color(GREEN.into());
                 } else {
                     self.set_fill_color(RED.into());
@@ -266,7 +289,6 @@ impl<'a> Drawable for Button<'a> {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);
 
-        render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
         self.label.draw(render_pass);
         // self.label.draw(render_pass);
         // render_pass.set_pipeline(ctx.text_brush.render_pipeline());

@@ -24,7 +24,7 @@ const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 static TEXT_BRUSH: OnceCell<TextBrush> = OnceCell::new();
 static ASSETS: Lazy<Assets> = Lazy::new(|| {
     let mut assets = Assets::new();
-    assets.load_font(Path::new("src/Roboto.ttf"));
+    assets.load_font(Path::new("assets/Roboto.ttf"));
 
     assets
 });
