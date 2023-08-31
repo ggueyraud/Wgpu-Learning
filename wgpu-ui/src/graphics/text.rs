@@ -1,13 +1,13 @@
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use crate::{math::pixels_to_clip, Context, TEXT_BRUSH};
+use crate::{
+    math::{pixels_to_clip, Rect},
+    Context, TEXT_BRUSH,
+};
 
 use super::{font::Font, Drawable, Transformable, Vertex};
 use glam::Vec2;
-use rusttype::{gpu_cache::Cache, point, vector, PositionedGlyph, Rect, Scale};
+use rusttype::{gpu_cache::Cache, point, PositionedGlyph, Scale};
 use wgpu::util::DeviceExt;
 
 const TEXTURE_WIDTH: u32 = 512;
@@ -18,12 +18,14 @@ fn layout_paragraph<'a>(
     scale: Scale,
     width: u32,
     text: &str,
-) -> Vec<PositionedGlyph<'a>> {
+) -> (Vec<PositionedGlyph<'a>>, Rect) {
     let mut result = Vec::new();
     let v_metrics = font.v_metrics(scale);
     let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
     let mut caret = point(0.0, v_metrics.ascent);
     let mut last_glyph_id = None;
+    let mut bounds = Rect::default();
+
     for c in text.chars() {
         if c.is_control() {
             match c {
@@ -41,7 +43,10 @@ fn layout_paragraph<'a>(
         }
         last_glyph_id = Some(base_glyph.id());
         let mut glyph = base_glyph.scaled(scale).positioned(caret);
+
         if let Some(bb) = glyph.pixel_bounding_box() {
+            bounds.height = bounds.height.max(bb.max.y as f32);
+
             if bb.max.x > width as i32 {
                 caret = point(0.0, caret.y + advance_height);
                 glyph.set_position(caret);
@@ -49,9 +54,11 @@ fn layout_paragraph<'a>(
             }
         }
         caret.x += glyph.unpositioned().h_metrics().advance_width;
+        bounds.width += glyph.unpositioned().h_metrics().advance_width;
         result.push(glyph);
     }
-    result
+
+    (result, bounds)
 }
 
 fn generate_vertices(
@@ -62,16 +69,17 @@ fn generate_vertices(
     character_size: f32,
     position: Vec2,
     size: (f32, f32),
-) -> Vec<Vertex> {
+) -> (Vec<Vertex>, Rect) {
     let (width, height) = (TEXTURE_WIDTH, TEXTURE_HEIGHT);
     let mut cache = Cache::builder().dimensions(width, height).build();
-    println!("Size: {}", size.0 as u32);
-    let glyphs = layout_paragraph(
+    let (glyphs, mut bounds) = layout_paragraph(
         &font.internal,
         Scale::uniform(character_size * 1.),
         size.0 as u32,
         text,
     );
+    bounds.x = position.x;
+    bounds.y = position.y;
 
     for glyph in &glyphs {
         cache.queue_glyph(0, glyph.clone());
@@ -81,7 +89,7 @@ fn generate_vertices(
         .cache_queued(|rect, data| {
             queue.write_texture(
                 wgpu::ImageCopyTexture {
-                    texture: &texture,
+                    texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d {
                         x: rect.min.x,
@@ -115,20 +123,33 @@ fn generate_vertices(
         .filter_map(|g| cache.rect_for(0, g).ok().flatten())
         .flat_map(|(uv_rect, screen_rect)| {
             // TODO : see how I can do to set the position to a specific screen coordinate (probably need to refactor this calculation)
-            let gl_rect = Rect {
-                min: origin
+            let a = pixels_to_clip(
+                position.x + screen_rect.min.x as f32,
+                position.y + screen_rect.min.y as f32,
+                size.0,
+                size.1,
+            );
+            let b = pixels_to_clip(
+                position.x + screen_rect.max.x as f32,
+                position.y + screen_rect.max.y as f32,
+                size.0,
+                size.1,
+            );
+            let gl_rect = rusttype::Rect {
+                min: // origin
                     // This convert into screen coordinate
-                    + (vector(
-                        screen_rect.min.x as f32 / size.0 as f32 - 0.5,
-                        1.0 - screen_rect.min.y as f32 / size.1 as f32 - 0.5,
-                    )) * 2.0,
-                max: origin
-                    + (vector(
-                        screen_rect.max.x as f32 / size.0 as f32 - 0.5,
-                        1.0 - screen_rect.max.y as f32 / size.1 as f32 - 0.5,
-                    )) * 2.0,
+                    point(a[0], a[1]),
+                    //  (vector(
+                    //     screen_rect.min.x as f32 / size.0 as f32 - 0.5,
+                    //     1.0 - screen_rect.min.y as f32 / size.1 as f32 - 0.5,
+                    // )) * 2.0,
+                max: // origin
+                    point(b[0], b[1]),
+                    // + (vector(
+                    //     screen_rect.max.x as f32 / size.0 as f32 - 0.5,
+                    //     1.0 - screen_rect.max.y as f32 / size.1 as f32 - 0.5,
+                    // )) * 2.0,
             };
-            println!("{screen_rect:?}");
 
             vec![
                 Vertex {
@@ -165,7 +186,7 @@ fn generate_vertices(
         })
         .collect();
 
-    vertices
+    (vertices, bounds)
 }
 
 pub struct Text<'a> {
@@ -180,6 +201,7 @@ pub struct Text<'a> {
     vertices: Vec<Vertex>,
     texture: wgpu::Texture,
     font: &'a Font<'a>,
+    bounds: Rect,
 }
 
 impl<'a> Text<'a> {
@@ -188,7 +210,6 @@ impl<'a> Text<'a> {
         text: &str,
         font: &'a Font,
         character_size: f32,
-        // bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let c = context.lock().unwrap();
 
@@ -219,11 +240,11 @@ impl<'a> Text<'a> {
             ..Default::default()
         });
 
-        let vertices = generate_vertices(
+        let (vertices, bounds) = generate_vertices(
             &c.queue,
             &diffuse_texture,
-            &font,
-            &text,
+            font,
+            text,
             character_size,
             Vec2::default(),
             (c.config.width as f32, c.config.height as f32),
@@ -252,6 +273,8 @@ impl<'a> Text<'a> {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
+        println!("Bounds {:?}", bounds);
+
         Self {
             text: text.to_string(),
             character_size: 30.,
@@ -264,7 +287,12 @@ impl<'a> Text<'a> {
             texture: diffuse_texture,
             font,
             context: context.clone(),
+            bounds,
         }
+    }
+
+    pub fn bounds(&self) -> Rect {
+        self.bounds
     }
 
     fn ensure_geometry_update(&mut self) {
@@ -274,21 +302,24 @@ impl<'a> Text<'a> {
 
         self.geometry_need_update = false;
         self.vertices.clear();
+        self.bounds = Rect::default();
 
         let ctx = self.context.lock().unwrap();
 
-        self.vertices = generate_vertices(
+        let (vertices, bounds) = generate_vertices(
             &ctx.queue,
             &self.texture,
-            &self.font,
+            self.font,
             &self.text,
             self.character_size,
             self.position,
             (ctx.config.width as f32, ctx.config.height as f32),
         );
+        self.vertices = vertices;
+        self.bounds = bounds;
+        println!("{bounds:?}");
         self.num_vertices = self.vertices.len() as _;
 
-        // let ctx = self.context.lock().unwrap();
         ctx.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
@@ -297,6 +328,8 @@ impl<'a> Text<'a> {
 impl<'a> Drawable for Text<'a> {
     fn draw<'b>(&'b mut self, render_pass: &mut wgpu::RenderPass<'b>) {
         // TODO : call ensure_geometry_upate
+
+        render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
 
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -325,8 +358,7 @@ pub struct TextBrush {
 
 impl TextBrush {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
-        let shader: wgpu::ShaderModule =
-            device.create_shader_module(wgpu::include_wgsl!("../shaders/text.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/text.wgsl"));
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
