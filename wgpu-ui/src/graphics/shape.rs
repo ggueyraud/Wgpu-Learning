@@ -8,8 +8,21 @@ use glam::Vec2;
 use wgpu::util::DeviceExt;
 
 pub trait Shape: Transformable + Drawable {
+    /// Fill all vertices with specified color
+    ///
+    /// # Arguments
+    ///
+    /// * `color` - Shape color
     fn set_fill_color(&mut self, color: Color);
+
+    /// Returns the position of a point of the shape
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - Index of the point whose position we want
     fn get_point(&self, index: usize) -> Vec2;
+
+    /// Returns the number of points of the shape
     fn get_point_count(&self) -> usize;
 }
 

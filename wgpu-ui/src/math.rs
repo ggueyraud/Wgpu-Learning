@@ -25,6 +25,11 @@ impl Rect {
         }
     }
 
+    /// Check if a point is contained by `Rect`
+    ///
+    ///  # Arguments
+    ///
+    /// * `point` - The point to test
     pub fn contains(&self, point: Vec2) -> bool {
         point.x >= self.x
             && point.x < self.x + self.width

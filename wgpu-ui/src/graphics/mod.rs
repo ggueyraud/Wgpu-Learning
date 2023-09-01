@@ -22,11 +22,23 @@ pub const GREEN: Color = Color(0, 255, 0);
 pub const BLUE: Color = Color(0, 0, 255);
 
 pub trait Drawable {
+    /// Draw the object to the screen
+    ///
+    /// # Arguments
+    ///
+    /// * `wgpu::RenderPass` - The render pass which process the object
     fn draw<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>);
 }
 
 pub trait Transformable {
+    /// Set the position of the object
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - New object position
     fn set_position(&mut self, position: Vec2);
+
+    /// Get the position of the object
     fn position(&self) -> &Vec2;
 }
 
