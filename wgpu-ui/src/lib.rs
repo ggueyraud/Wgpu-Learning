@@ -35,6 +35,8 @@ pub struct Context {
     pub config: wgpu::SurfaceConfiguration,
 }
 
+pub type Ctx = Arc<Mutex<Context>>;
+
 struct State {
     context: Arc<Mutex<Context>>,
     surface: wgpu::Surface,
@@ -145,34 +147,20 @@ impl State {
             config,
             device,
             queue,
-            // text_brush,
-            // render_pipeline
         }));
-
-        // RENDER_PIPELINE.set(render_pipeline);
-
-        // let font = Font::new("src/Roboto.ttf").unwrap();
-        // let text = Text::new(
-        //     context.clone(),
-        //     "Learn wgpu",
-        //     &font,
-        //     30.
-        // );
 
         let mut ui = Ui::new();
         let mut btn = Button::new("Lorem ipsum", context.clone());
         btn.set_position(glam::Vec2 { x: 0., y: 200. });
+        btn.set_paddings((10., 20., 20., 10.).into());
         ui.add(Box::new(btn));
 
         Self {
             surface,
             index_buffer,
             render_pipeline,
-            // text_brush,
             ui,
             context,
-            // font,
-            // text,
         }
     }
 

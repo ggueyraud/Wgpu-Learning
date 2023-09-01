@@ -1,8 +1,6 @@
-use std::sync::{Arc, Mutex};
-
 use crate::{
     math::{pixels_to_clip, Rect},
-    Context, TEXT_BRUSH,
+    Ctx, TEXT_BRUSH,
 };
 
 use super::{font::Font, Drawable, Transformable, Vertex};
@@ -190,7 +188,7 @@ fn generate_vertices(
 }
 
 pub struct Text<'a> {
-    context: Arc<Mutex<Context>>,
+    context: Ctx,
     text: String,
     character_size: f32,
     vertex_buffer: wgpu::Buffer,
@@ -205,12 +203,7 @@ pub struct Text<'a> {
 }
 
 impl<'a> Text<'a> {
-    pub fn new(
-        context: Arc<Mutex<Context>>,
-        text: &str,
-        font: &'a Font,
-        character_size: f32,
-    ) -> Self {
+    pub fn new(context: Ctx, text: &str, font: &'a Font, character_size: f32) -> Text<'a> {
         let c = context.lock().unwrap();
 
         let texture_size = wgpu::Extent3d {

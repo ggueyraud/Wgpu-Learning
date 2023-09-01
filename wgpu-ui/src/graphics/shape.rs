@@ -1,5 +1,11 @@
+use crate::{
+    math::{pixels_to_clip, Rect},
+    Ctx,
+};
+
 use super::{Color, Drawable, Transformable, Vertex, WHITE};
 use glam::Vec2;
+use wgpu::util::DeviceExt;
 
 pub trait Shape: Transformable + Drawable {
     fn set_fill_color(&mut self, color: Color);
@@ -8,7 +14,8 @@ pub trait Shape: Transformable + Drawable {
 }
 
 pub struct RectangleShape {
-    // vertex_buffer: wgpu::Buffer,
+    context: Ctx,
+    vertex_buffer: wgpu::Buffer,
     color: Color,
     vertices: Vec<Vertex>,
     position: Vec2,
@@ -16,17 +23,52 @@ pub struct RectangleShape {
 }
 
 impl RectangleShape {
-    pub fn new(size: Vec2) -> Self {
-        Self {
+    pub fn new(context: Ctx, size: Vec2) -> Self {
+        let ctx = context.lock().unwrap();
+        let mut vertices = Vec::new();
+
+        for _ in 0..4 {
+            vertices.push(Vertex {
+                position: [0., 0.],
+                color: WHITE.into(),
+                tex_coords: [-1., -1.],
+            });
+        }
+
+        let vertex_buffer = ctx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+        drop(ctx);
+
+        let mut s = Self {
+            context,
             position: Default::default(),
             size,
             color: WHITE,
-            vertices: vec![],
+            vertices,
+            vertex_buffer,
+        };
+        s.update();
+
+        s
+    }
+
+    pub fn bounds(&self) -> Rect {
+        Rect {
+            x: self.position.x,
+            y: self.position.y,
+            width: self.size.x,
+            height: self.size.y,
         }
     }
 
     pub fn set_size(&mut self, size: Vec2) {
         self.size = size;
+        self.update();
     }
 
     pub fn size(&self) -> &Vec2 {
@@ -34,17 +76,32 @@ impl RectangleShape {
     }
 
     fn update(&mut self) {
-        for i in 0..self.get_point_count() {
-            let point: [f32; 2] = self.get_point(i).into();
+        let ctx = self.context.lock().unwrap();
+        let screen_size = (ctx.config.width as f32, ctx.config.height as f32);
+        drop(ctx);
 
-            if let Some(vertex) = self.vertices.get_mut(i + 1) {
-                vertex.position = point;
+        println!("position: {:?}", self.position);
+
+        for i in 0..self.get_point_count() {
+            let point = self.get_point(i);
+            println!("Get point {point:?}");
+
+            if let Some(vertex) = self.vertices.get_mut(i) {
+                vertex.position = pixels_to_clip(
+                    self.position.x + point.x,
+                    self.position.y + point.y,
+                    screen_size.0,
+                    screen_size.1,
+                );
             }
         }
+        println!("{:?}", self.vertices);
 
         self.update_fill_color();
 
-        // TODO : update buffer
+        let ctx = self.context.lock().unwrap();
+        ctx.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 
     fn update_fill_color(&mut self) {
@@ -57,9 +114,9 @@ impl RectangleShape {
 impl Shape for RectangleShape {
     fn get_point(&self, index: usize) -> Vec2 {
         match index {
-            1 => (self.size.x, 0.).into(),
+            1 => (0., self.size.y).into(),
             2 => self.size,
-            3 => (0., self.size.y).into(),
+            3 => (self.size.x, 0.).into(),
             _ => (0., 0.).into(),
         }
     }
@@ -71,13 +128,16 @@ impl Shape for RectangleShape {
     fn set_fill_color(&mut self, color: Color) {
         self.color = color;
 
-        self.update_fill_color();
+        // self.update_fill_color();
+        self.update();
     }
 }
 
 impl Transformable for RectangleShape {
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
+
+        self.update();
     }
 
     fn position(&self) -> Vec2 {
@@ -87,7 +147,7 @@ impl Transformable for RectangleShape {
 
 impl Drawable for RectangleShape {
     fn draw<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>) {
-        // Set vertex buffer
-        // Set index buffer
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw_indexed(0..6, 0, 0..1);
     }
 }
