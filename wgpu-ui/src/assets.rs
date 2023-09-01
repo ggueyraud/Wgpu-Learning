@@ -1,10 +1,9 @@
 use anyhow::Result;
-use std::{collections::HashMap, path::Path};
 use rusttype::Font;
+use std::{collections::HashMap, path::Path};
 
 /// Resources holder (in this case the holder only handle Font but it can be extended to hold textures, sounds, ..)
 pub struct Assets<'a> {
-    // TODO : not sure the Font struct is interesting, we could only store rusttype::Font
     fonts: HashMap<String, Font<'a>>,
 }
 
