@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
-use ui::{Button, Ui};
+use ui::{button::Button, Ui};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -154,6 +154,11 @@ impl State {
         btn.set_position(glam::Vec2 { x: 0., y: 200. });
         btn.set_paddings((10., 20., 20., 10.).into());
         ui.add(Box::new(btn));
+
+        // TODO : investigate to see why this widget isn't displayed (probably due render pass configuration)
+        let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
+        window.set_position((100., 50.).into());
+        ui.add(Box::new(window));
 
         Self {
             surface,

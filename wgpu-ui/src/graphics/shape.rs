@@ -80,11 +80,8 @@ impl RectangleShape {
         let screen_size = (ctx.config.width as f32, ctx.config.height as f32);
         drop(ctx);
 
-        println!("position: {:?}", self.position);
-
         for i in 0..self.get_point_count() {
             let point = self.get_point(i);
-            println!("Get point {point:?}");
 
             if let Some(vertex) = self.vertices.get_mut(i) {
                 vertex.position = pixels_to_clip(
@@ -95,7 +92,6 @@ impl RectangleShape {
                 );
             }
         }
-        println!("{:?}", self.vertices);
 
         self.update_fill_color();
 
@@ -140,8 +136,8 @@ impl Transformable for RectangleShape {
         self.update();
     }
 
-    fn position(&self) -> Vec2 {
-        self.position
+    fn position(&self) -> &Vec2 {
+        &self.position
     }
 }
 

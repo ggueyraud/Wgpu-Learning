@@ -1,49 +1,12 @@
+use super::Widget;
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
 use crate::graphics::{Drawable, Transformable, BLUE, GREEN, RED};
-use crate::ASSETS;
 use crate::Ctx;
+use crate::ASSETS;
 use glam::{Vec2, Vec4};
 use wgpu::RenderPass;
 use winit::event::{ElementState, MouseButton, WindowEvent};
-
-pub struct Ui {
-    widgets: Vec<Box<dyn Widget>>,
-}
-
-impl Ui {
-    pub fn new() -> Self {
-        Self {
-            widgets: Vec::new(),
-        }
-    }
-
-    pub fn add(&mut self, widget: Box<dyn Widget>) {
-        self.widgets.push(widget)
-    }
-
-    pub fn process_events(&mut self, event: &WindowEvent) {
-        self.widgets
-            .iter_mut()
-            .for_each(|w| w.process_events(event));
-    }
-
-    pub fn update(&mut self, dt: f32) {
-        self.widgets.iter_mut().for_each(|w| w.update(dt));
-    }
-
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
-        self.widgets.iter_mut().for_each(|w| w.draw(render_pass));
-    }
-}
-
-pub trait Widget: Drawable + Transformable {
-    fn process_events(&mut self, event: &WindowEvent);
-
-    fn update(&mut self, _dt: f32) {}
-
-    fn position(&self) -> &Vec2;
-}
 
 enum ButtonState {
     None,
@@ -62,8 +25,8 @@ pub struct Button<'a> {
 }
 
 impl<'a> Transformable for Button<'a> {
-    fn position(&self) -> Vec2 {
-        self.position
+    fn position(&self) -> &Vec2 {
+        self.rect.position()
     }
 
     fn set_position(&mut self, position: Vec2) {
@@ -119,10 +82,6 @@ impl<'a> Button<'a> {
 }
 
 impl<'a> Widget for Button<'a> {
-    fn position(&self) -> &Vec2 {
-        &self.position
-    }
-
     fn update(&mut self, _dt: f32) {
         // Calculate paddings
         let label_bounds = self.label.bounds();
@@ -153,7 +112,6 @@ impl<'a> Widget for Button<'a> {
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
                 self.mp = (x.round(), y.round()).into();
-                println!("{}", self.mp);
 
                 if inside(self.mp.x, self.mp.y) {
                     self.rect.set_fill_color(GREEN);

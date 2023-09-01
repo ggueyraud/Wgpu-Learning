@@ -27,7 +27,7 @@ pub trait Drawable {
 
 pub trait Transformable {
     fn set_position(&mut self, position: Vec2);
-    fn position(&self) -> Vec2;
+    fn position(&self) -> &Vec2;
 }
 
 #[repr(C)]

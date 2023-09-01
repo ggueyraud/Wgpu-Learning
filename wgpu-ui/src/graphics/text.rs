@@ -266,11 +266,9 @@ impl<'a> Text<'a> {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        println!("Bounds {:?}", bounds);
-
         Self {
             text: text.to_string(),
-            character_size: 30.,
+            character_size,
             vertex_buffer,
             num_vertices: vertices.len() as _,
             bind_group,
@@ -310,7 +308,6 @@ impl<'a> Text<'a> {
         );
         self.vertices = vertices;
         self.bounds = bounds;
-        println!("{bounds:?}");
         self.num_vertices = self.vertices.len() as _;
 
         ctx.queue
@@ -331,8 +328,8 @@ impl<'a> Drawable for Text<'a> {
 }
 
 impl<'a> Transformable for Text<'a> {
-    fn position(&self) -> glam::Vec2 {
-        self.position
+    fn position(&self) -> &Vec2 {
+        &self.position
     }
 
     fn set_position(&mut self, position: Vec2) {
