@@ -1,7 +1,10 @@
 use super::Widget;
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
-use crate::graphics::{Drawable, Transformable, BLUE, GREEN, RED};
+use crate::graphics::{
+    color::{BLUE, GREEN, RED},
+    Drawable, Transformable,
+};
 use crate::Ctx;
 use crate::ASSETS;
 use glam::{Vec2, Vec4};
