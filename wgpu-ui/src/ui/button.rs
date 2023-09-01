@@ -8,7 +8,8 @@ use glam::{Vec2, Vec4};
 use wgpu::RenderPass;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
-enum ButtonState {
+#[derive(PartialEq)]
+pub enum ButtonState {
     None,
     Hover,
     Click,
@@ -20,8 +21,9 @@ pub struct Button<'a> {
     label: Text<'a>,
     position: Vec2,
     state: ButtonState,
-    mp: Vec2,
+    mouse_position: Vec2,
     paddings: Vec4,
+    click_cb: Option<Box<dyn Fn()>>,
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -58,26 +60,41 @@ impl<'a> Button<'a> {
 
         Self {
             rect,
-            // context,
             position,
             label,
             state: ButtonState::None,
-            mp: (0., 0.).into(),
+            mouse_position: Default::default(),
             paddings: (0., 0., 0., 0.).into(),
+            click_cb: None,
         }
     }
 
+    pub fn set_character_size(&mut self, character_size: f32) {
+        self.label.set_character_size(character_size);
+    }
+
     fn click(&mut self) {
-        // println!("Click event");
-        // self.set_position(Vec2 { x: 100., y: 100. });
-        self.paddings.w += 5.;
-        self.set_paddings(self.paddings);
+        if let Some(cb) = &self.click_cb {
+            cb()
+        }
+    }
+
+    pub fn set_callback(&mut self, callback: Box<dyn Fn()>) {
+        self.click_cb = Some(callback);
+    }
+
+    pub fn state(&self) -> &ButtonState {
+        &self.state
     }
 
     pub fn set_paddings(&mut self, paddings: Vec4) {
         self.paddings = paddings;
 
         self.update(0.);
+    }
+
+    pub fn size(&self) -> &Vec2 {
+        self.rect.size()
     }
 }
 
@@ -99,22 +116,17 @@ impl<'a> Widget for Button<'a> {
     }
 
     fn process_events(&mut self, event: &WindowEvent) {
-        let mut s = ButtonState::None;
+        let mut s: ButtonState = ButtonState::None;
         let bounds = self.rect.bounds();
-        let inside = |x: f32, y: f32| -> bool {
-            x >= self.position.x
-                && x <= self.position.x + bounds.width
-                && y >= self.position.y
-                && y <= self.position.y + bounds.height
-        };
 
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 let (x, y) = (position.x as f32, position.y as f32);
-                self.mp = (x.round(), y.round()).into();
+                self.mouse_position = (x.round(), y.round()).into();
 
-                if inside(self.mp.x, self.mp.y) {
+                if bounds.contains(self.mouse_position) {
                     self.rect.set_fill_color(GREEN);
+                    s = ButtonState::Hover;
                 } else {
                     self.rect.set_fill_color(RED);
                 }
@@ -123,19 +135,23 @@ impl<'a> Widget for Button<'a> {
                 state,
                 button: MouseButton::Left,
                 ..
-            } => {
-                if inside(self.mp.x, self.mp.y) {
-                    match *state {
-                        ElementState::Pressed => {
-                            self.click();
-                            self.rect.set_fill_color(BLUE);
-                        }
-                        ElementState::Released => {
-                            self.rect.set_fill_color(RED);
+            } => match state {
+                ElementState::Pressed => {
+                    if bounds.contains(self.mouse_position) {
+                        match *state {
+                            ElementState::Pressed => {
+                                self.click();
+                                s = ButtonState::Click;
+                                self.rect.set_fill_color(BLUE);
+                            }
+                            ElementState::Released => {
+                                self.rect.set_fill_color(RED);
+                            }
                         }
                     }
                 }
-            }
+                _ => {}
+            },
             _ => {}
         }
 

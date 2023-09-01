@@ -1,5 +1,4 @@
 use crate::graphics::{Drawable, Transformable};
-use glam::Vec2;
 use wgpu::RenderPass;
 use winit::event::WindowEvent;
 
@@ -31,8 +30,15 @@ impl Ui {
         self.widgets.iter_mut().for_each(|w| w.update(dt));
     }
 
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
-        self.widgets.iter_mut().for_each(|w| w.draw(render_pass));
+    pub fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut RenderPass<'a>,
+        render_pipeline: &'a wgpu::RenderPipeline,
+    ) {
+        self.widgets.iter_mut().for_each(|w| {
+            render_pass.set_pipeline(render_pipeline);
+            w.draw(render_pass);
+        });
     }
 }
 

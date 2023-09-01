@@ -155,7 +155,6 @@ impl State {
         btn.set_paddings((10., 20., 20., 10.).into());
         ui.add(Box::new(btn));
 
-        // TODO : investigate to see why this widget isn't displayed (probably due render pass configuration)
         let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
         window.set_position((100., 50.).into());
         ui.add(Box::new(window));
@@ -222,10 +221,13 @@ impl State {
             });
 
             // render_pass.set_pipeline(&context.render_pipeline);
-            render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            self.ui.draw(&mut render_pass);
+            self.ui.draw(&mut render_pass, &self.render_pipeline);
+            // for widget in self.ui.widgets.iter_mut() {
+            //     render_pass.set_pipeline(&self.render_pipeline);
+            //     widget.draw(&mut render_pass);
+            // }
 
             // context.text_brush.draw(&mut render_pass);
             // TEXT_BRUSH.get().unwrap().draw(&mut render_pass);

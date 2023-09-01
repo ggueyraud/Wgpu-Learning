@@ -120,7 +120,7 @@ fn generate_vertices(
         .iter()
         .filter_map(|g| cache.rect_for(0, g).ok().flatten())
         .flat_map(|(uv_rect, screen_rect)| {
-            // TODO : see how I can do to set the position to a specific screen coordinate (probably need to refactor this calculation)
+            // TODO : refactor this calculation
             let a = pixels_to_clip(
                 position.x + screen_rect.min.x as f32,
                 position.y + screen_rect.min.y as f32,
@@ -312,6 +312,13 @@ impl<'a> Text<'a> {
 
         ctx.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
+
+    pub fn set_character_size(&mut self, character_size: f32) {
+        self.character_size = character_size;
+        self.geometry_need_update = true;
+
+        self.ensure_geometry_update();
     }
 }
 
