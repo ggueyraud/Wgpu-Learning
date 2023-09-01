@@ -3,7 +3,7 @@ use crate::{
     Ctx, TEXT_BRUSH,
 };
 
-use super::{font::Font, Drawable, Transformable, Vertex};
+use super::{Drawable, Transformable, Vertex};
 use glam::Vec2;
 use rusttype::{gpu_cache::Cache, point, PositionedGlyph, Scale};
 use wgpu::util::DeviceExt;
@@ -62,7 +62,7 @@ fn layout_paragraph<'a>(
 fn generate_vertices(
     queue: &wgpu::Queue,
     texture: &wgpu::Texture,
-    font: &Font,
+    font: &rusttype::Font,
     text: &str,
     character_size: f32,
     position: Vec2,
@@ -71,7 +71,7 @@ fn generate_vertices(
     let (width, height) = (TEXTURE_WIDTH, TEXTURE_HEIGHT);
     let mut cache = Cache::builder().dimensions(width, height).build();
     let (glyphs, mut bounds) = layout_paragraph(
-        &font.internal,
+        font,
         Scale::uniform(character_size * 1.),
         size.0 as u32,
         text,
@@ -198,12 +198,12 @@ pub struct Text<'a> {
     geometry_need_update: bool,
     vertices: Vec<Vertex>,
     texture: wgpu::Texture,
-    font: &'a Font<'a>,
+    font: &'a rusttype::Font<'a>,
     bounds: Rect,
 }
 
 impl<'a> Text<'a> {
-    pub fn new(context: Ctx, text: &str, font: &'a Font, character_size: f32) -> Text<'a> {
+    pub fn new(context: Ctx, text: &str, font: &'a rusttype::Font, character_size: f32) -> Text<'a> {
         let c = context.lock().unwrap();
 
         let texture_size = wgpu::Extent3d {

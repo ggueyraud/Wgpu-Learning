@@ -1,7 +1,6 @@
 use derive_more::From;
 use glam::Vec2;
 
-pub mod font;
 pub mod shape;
 pub mod text;
 
