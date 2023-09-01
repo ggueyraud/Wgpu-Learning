@@ -17,7 +17,6 @@ pub enum ButtonState {
 
 pub struct Button<'a> {
     rect: RectangleShape,
-    // context: Ctx,
     label: Text<'a>,
     position: Vec2,
     state: ButtonState,

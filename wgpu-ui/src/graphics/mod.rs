@@ -4,6 +4,7 @@ use glam::Vec2;
 pub mod shape;
 pub mod text;
 
+/// Describe color as RGB format
 #[derive(From, Clone, Copy)]
 pub struct Color(u8, u8, u8);
 
