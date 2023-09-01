@@ -3,7 +3,10 @@ use crate::{
     Ctx, TEXT_BRUSH,
 };
 
-use super::{Drawable, Transformable, Vertex};
+use super::{
+    color::{Color, WHITE},
+    Drawable, Transformable, Vertex,
+};
 use glam::Vec2;
 use rusttype::{gpu_cache::Cache, point, PositionedGlyph, Scale};
 use wgpu::util::DeviceExt;
@@ -16,6 +19,7 @@ fn layout_paragraph<'a>(
     scale: Scale,
     width: u32,
     text: &str,
+    color: &Color,
 ) -> (Vec<PositionedGlyph<'a>>, Rect) {
     let mut result = Vec::new();
     let v_metrics = font.v_metrics(scale);
@@ -67,6 +71,7 @@ fn generate_vertices(
     character_size: f32,
     position: Vec2,
     size: (f32, f32),
+    color: &Color,
 ) -> (Vec<Vertex>, Rect) {
     let (width, height) = (TEXTURE_WIDTH, TEXTURE_HEIGHT);
     let mut cache = Cache::builder().dimensions(width, height).build();
@@ -75,6 +80,7 @@ fn generate_vertices(
         Scale::uniform(character_size * 1.),
         size.0 as u32,
         text,
+        color,
     );
     bounds.x = position.x;
     bounds.y = position.y;
@@ -111,7 +117,7 @@ fn generate_vertices(
         })
         .unwrap();
 
-    let color = [1.0, 1.0, 1.0];
+    let color: [f32; 3] = (*color).into();
     // let origin = pixels_to_clip(position.x, position.y, size.0, size.1);
     // let origin = point(origin[0], origin[1]);
     let origin = point(0., 0.);
@@ -200,18 +206,25 @@ pub struct Text<'a> {
     texture: wgpu::Texture,
     font: &'a rusttype::Font<'a>,
     bounds: Rect,
+    color: Color,
 }
 
 impl<'a> Text<'a> {
-    pub fn new(context: Ctx, text: &str, font: &'a rusttype::Font, character_size: f32) -> Text<'a> {
-        let c = context.lock().unwrap();
+    pub fn new(
+        context: Ctx,
+        text: &str,
+        font: &'a rusttype::Font,
+        character_size: f32,
+    ) -> Text<'a> {
+        let ctx = context.lock().unwrap();
+        let color = WHITE;
 
         let texture_size = wgpu::Extent3d {
             width: TEXTURE_WIDTH,
             height: TEXTURE_HEIGHT,
             depth_or_array_layers: 1,
         };
-        let diffuse_texture = c.device.create_texture(&wgpu::TextureDescriptor {
+        let diffuse_texture = ctx.device.create_texture(&wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
@@ -223,7 +236,7 @@ impl<'a> Text<'a> {
         });
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let diffuse_sampler = c.device.create_sampler(&wgpu::SamplerDescriptor {
+        let diffuse_sampler = ctx.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -234,16 +247,17 @@ impl<'a> Text<'a> {
         });
 
         let (vertices, bounds) = generate_vertices(
-            &c.queue,
+            &ctx.queue,
             &diffuse_texture,
             font,
             text,
             character_size,
             Vec2::default(),
-            (c.config.width as f32, c.config.height as f32),
+            (ctx.config.width as f32, ctx.config.height as f32),
+            &color,
         );
 
-        let bind_group = c.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &TEXT_BRUSH.get().unwrap().bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -258,7 +272,7 @@ impl<'a> Text<'a> {
             label: Some("diffuse_bind_group"),
         });
 
-        let vertex_buffer = c
+        let vertex_buffer = ctx
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex buffer"),
@@ -279,6 +293,7 @@ impl<'a> Text<'a> {
             font,
             context: context.clone(),
             bounds,
+            color,
         }
     }
 
@@ -290,6 +305,7 @@ impl<'a> Text<'a> {
         if !self.geometry_need_update {
             return;
         }
+        println!("ensure");
 
         self.geometry_need_update = false;
         self.vertices.clear();
@@ -305,6 +321,7 @@ impl<'a> Text<'a> {
             self.character_size,
             self.position,
             (ctx.config.width as f32, ctx.config.height as f32),
+            &self.color,
         );
         self.vertices = vertices;
         self.bounds = bounds;
@@ -312,6 +329,25 @@ impl<'a> Text<'a> {
 
         ctx.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
+
+    fn update(&mut self) {
+        let ctx = self.context.lock().unwrap();
+
+        println!("Update {:?}", self.color);
+
+        self.vertices
+            .iter_mut()
+            .for_each(|vertex| vertex.color = [0., 1., 0.]);
+
+        ctx.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
+
+    pub fn set_fill_color(&mut self, color: Color) {
+        self.color = color;
+
+        self.update();
     }
 
     pub fn set_character_size(&mut self, character_size: f32) {
