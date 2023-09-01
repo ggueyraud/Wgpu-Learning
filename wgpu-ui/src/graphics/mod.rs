@@ -1,25 +1,8 @@
-use derive_more::From;
 use glam::Vec2;
 
+pub mod color;
 pub mod shape;
 pub mod text;
-
-/// Describe color as RGB format
-#[derive(From, Clone, Copy)]
-pub struct Color(u8, u8, u8);
-
-impl Into<[f32; 3]> for Color {
-    fn into(self) -> [f32; 3] {
-        [self.0 as f32, self.1 as f32, self.2 as f32]
-    }
-}
-
-#[allow(dead_code)]
-pub const BLACK: Color = Color(0, 0, 0);
-pub const WHITE: Color = Color(255, 255, 255);
-pub const RED: Color = Color(255, 0, 0);
-pub const GREEN: Color = Color(0, 255, 0);
-pub const BLUE: Color = Color(0, 0, 255);
 
 pub trait Drawable {
     /// Draw the object to the screen

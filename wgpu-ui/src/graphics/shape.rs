@@ -3,7 +3,7 @@ use crate::{
     Ctx,
 };
 
-use super::{Color, Drawable, Transformable, Vertex, WHITE};
+use super::{Drawable, Transformable, Vertex, color::{Color, WHITE}};
 use glam::Vec2;
 use wgpu::util::DeviceExt;
 

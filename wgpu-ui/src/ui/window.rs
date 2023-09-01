@@ -5,7 +5,10 @@ use super::button::{Button, ButtonState};
 use super::Widget;
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
-use crate::graphics::{Drawable, Transformable, BLUE, RED};
+use crate::graphics::{
+    color::{BLUE, RED},
+    Drawable, Transformable,
+};
 use crate::{Ctx, ASSETS};
 
 pub struct Window<'a> {
