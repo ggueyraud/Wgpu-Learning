@@ -19,7 +19,6 @@ fn layout_paragraph<'a>(
     scale: Scale,
     width: u32,
     text: &str,
-    color: &Color,
 ) -> (Vec<PositionedGlyph<'a>>, Rect) {
     let mut result = Vec::new();
     let v_metrics = font.v_metrics(scale);
@@ -70,7 +69,7 @@ fn generate_vertices(
     text: &str,
     character_size: f32,
     position: Vec2,
-    size: (f32, f32),
+    screen_size: (f32, f32),
     color: &Color,
 ) -> (Vec<Vertex>, Rect) {
     let (width, height) = (TEXTURE_WIDTH, TEXTURE_HEIGHT);
@@ -78,9 +77,8 @@ fn generate_vertices(
     let (glyphs, mut bounds) = layout_paragraph(
         font,
         Scale::uniform(character_size * 1.),
-        size.0 as u32,
+        screen_size.0 as u32,
         text,
-        color,
     );
     bounds.x = position.x;
     bounds.y = position.y;
@@ -118,42 +116,27 @@ fn generate_vertices(
         .unwrap();
 
     let color: [f32; 3] = (*color).into();
-    // let origin = pixels_to_clip(position.x, position.y, size.0, size.1);
-    // let origin = point(origin[0], origin[1]);
-    let origin = point(0., 0.);
 
     let vertices = glyphs
         .iter()
         .filter_map(|g| cache.rect_for(0, g).ok().flatten())
         .flat_map(|(uv_rect, screen_rect)| {
-            // TODO : refactor this calculation
-            let a = pixels_to_clip(
+            let min = pixels_to_clip(
                 position.x + screen_rect.min.x as f32,
                 position.y + screen_rect.min.y as f32,
-                size.0,
-                size.1,
+                screen_size.0,
+                screen_size.1,
             );
-            let b = pixels_to_clip(
+            let min = point(min[0], min[1]);
+
+            let max = pixels_to_clip(
                 position.x + screen_rect.max.x as f32,
                 position.y + screen_rect.max.y as f32,
-                size.0,
-                size.1,
+                screen_size.0,
+                screen_size.1,
             );
-            let gl_rect = rusttype::Rect {
-                min: // origin
-                    // This convert into screen coordinate
-                    point(a[0], a[1]),
-                    //  (vector(
-                    //     screen_rect.min.x as f32 / size.0 as f32 - 0.5,
-                    //     1.0 - screen_rect.min.y as f32 / size.1 as f32 - 0.5,
-                    // )) * 2.0,
-                max: // origin
-                    point(b[0], b[1]),
-                    // + (vector(
-                    //     screen_rect.max.x as f32 / size.0 as f32 - 0.5,
-                    //     1.0 - screen_rect.max.y as f32 / size.1 as f32 - 0.5,
-                    // )) * 2.0,
-            };
+            let max = point(max[0], max[1]);
+            let gl_rect = rusttype::Rect { min, max };
 
             vec![
                 Vertex {
@@ -305,7 +288,6 @@ impl<'a> Text<'a> {
         if !self.geometry_need_update {
             return;
         }
-        println!("ensure");
 
         self.geometry_need_update = false;
         self.vertices.clear();
@@ -331,36 +313,38 @@ impl<'a> Text<'a> {
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 
-    fn update(&mut self) {
-        let ctx = self.context.lock().unwrap();
-
-        println!("Update {:?}", self.color);
+    /// Set the fill color of the text. 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `color` - New text color
+    pub fn set_fill_color(&mut self, color: Color) {
+        self.color = color;
 
         self.vertices
             .iter_mut()
-            .for_each(|vertex| vertex.color = [0., 1., 0.]);
+            .for_each(|vertex| vertex.color = color.into());
 
+        let ctx = self.context.lock().unwrap();
         ctx.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 
-    pub fn set_fill_color(&mut self, color: Color) {
-        self.color = color;
-
-        self.update();
-    }
-
+    /// Set the character size. 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `character_size` - New text size
     pub fn set_character_size(&mut self, character_size: f32) {
         self.character_size = character_size;
+        
         self.geometry_need_update = true;
-
-        self.ensure_geometry_update();
     }
 }
 
 impl<'a> Drawable for Text<'a> {
     fn draw<'b>(&'b mut self, render_pass: &mut wgpu::RenderPass<'b>) {
-        // TODO : call ensure_geometry_upate
+        self.ensure_geometry_update();
 
         render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
 
@@ -377,10 +361,8 @@ impl<'a> Transformable for Text<'a> {
 
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
+        
         self.geometry_need_update = true;
-
-        // TODO : in future this should not be manually call after data alteration
-        self.ensure_geometry_update();
     }
 }
 
