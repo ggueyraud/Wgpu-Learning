@@ -175,7 +175,7 @@ impl State {
     }
 
     fn update(&mut self, dt: f32) {
-        self.ui.update(dt);
+        // self.ui.update(dt);
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -200,6 +200,7 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+        drop(context);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -235,6 +236,7 @@ impl State {
             // self.text.draw(&mut render_pass);
         }
 
+        let context = self.context.lock().unwrap();
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
