@@ -1,7 +1,7 @@
 use glam::Vec2;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
-use super::button::{Button, ButtonState};
+use super::button::{Button, Event};
 use super::Widget;
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
@@ -65,7 +65,13 @@ impl<'a> Widget for Window<'a> {
 
         self.close_btn.process_events(event);
 
-        if self.close_btn.state() == &ButtonState::Click {
+        if !self
+            .close_btn
+            .events()
+            .filter(|e| e == &Event::Click)
+            .collect::<Vec<_>>()
+            .is_empty()
+        {
             self.set_visibility(false);
         }
 

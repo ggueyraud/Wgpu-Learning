@@ -11,21 +11,19 @@ use glam::{Vec2, Vec4};
 use wgpu::RenderPass;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
-#[derive(PartialEq)]
-pub enum ButtonState {
-    None,
-    Hover,
+#[derive(Debug, PartialEq)]
+pub enum Event {
     Click,
+    Hover,
 }
 
 pub struct Button<'a> {
     rect: RectangleShape,
     label: Text<'a>,
     position: Vec2,
-    state: ButtonState,
     mouse_position: Vec2,
     paddings: Vec4,
-    click_cb: Option<Box<dyn Fn()>>,
+    events: Vec<Event>,
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -64,29 +62,14 @@ impl<'a> Button<'a> {
             rect,
             position,
             label,
-            state: ButtonState::None,
             mouse_position: Default::default(),
             paddings: (0., 0., 0., 0.).into(),
-            click_cb: None,
+            events: Vec::new(),
         }
     }
 
     pub fn set_character_size(&mut self, character_size: f32) {
         self.label.set_character_size(character_size);
-    }
-
-    fn click(&mut self) {
-        if let Some(cb) = &self.click_cb {
-            cb()
-        }
-    }
-
-    pub fn set_callback(&mut self, callback: Box<dyn Fn()>) {
-        self.click_cb = Some(callback);
-    }
-
-    pub fn state(&self) -> &ButtonState {
-        &self.state
     }
 
     pub fn set_paddings(&mut self, paddings: Vec4) {
@@ -97,6 +80,10 @@ impl<'a> Button<'a> {
 
     pub fn size(&self) -> &Vec2 {
         self.rect.size()
+    }
+
+    pub fn events(&mut self) -> std::vec::Drain<Event> {
+        self.events.drain(..)
     }
 }
 
@@ -118,7 +105,6 @@ impl<'a> Widget for Button<'a> {
     }
 
     fn process_events(&mut self, event: &WindowEvent) {
-        let mut s: ButtonState = ButtonState::None;
         let bounds = self.rect.bounds();
 
         match event {
@@ -128,7 +114,7 @@ impl<'a> Widget for Button<'a> {
 
                 if bounds.contains(self.mouse_position) {
                     self.rect.set_fill_color(GREEN);
-                    s = ButtonState::Hover;
+                    self.events.push(Event::Hover);
                 } else {
                     self.rect.set_fill_color(RED);
                 }
@@ -142,8 +128,7 @@ impl<'a> Widget for Button<'a> {
                     if bounds.contains(self.mouse_position) {
                         match *state {
                             ElementState::Pressed => {
-                                self.click();
-                                s = ButtonState::Click;
+                                self.events.push(Event::Click);
                                 self.rect.set_fill_color(BLUE);
                             }
                             ElementState::Released => {
@@ -156,8 +141,6 @@ impl<'a> Widget for Button<'a> {
             },
             _ => {}
         }
-
-        self.state = s;
     }
 }
 
