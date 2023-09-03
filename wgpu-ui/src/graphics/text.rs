@@ -313,10 +313,10 @@ impl<'a> Text<'a> {
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 
-    /// Set the fill color of the text. 
-    /// 
+    /// Set the fill color of the text.
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `color` - New text color
     pub fn set_fill_color(&mut self, color: Color) {
         self.color = color;
@@ -330,14 +330,14 @@ impl<'a> Text<'a> {
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
     }
 
-    /// Set the character size. 
-    /// 
+    /// Set the character size.
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `character_size` - New text size
     pub fn set_character_size(&mut self, character_size: f32) {
         self.character_size = character_size;
-        
+
         self.geometry_need_update = true;
     }
 }
@@ -361,7 +361,7 @@ impl<'a> Transformable for Text<'a> {
 
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
-        
+
         self.geometry_need_update = true;
     }
 }

@@ -38,7 +38,6 @@ impl Rect {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::Rect;
@@ -46,13 +45,23 @@ mod tests {
 
     #[test]
     fn rect_contains_point() {
-        let rect = Rect { x: 0., y: 0., width: 32., height: 32. };
+        let rect = Rect {
+            x: 0.,
+            y: 0.,
+            width: 32.,
+            height: 32.,
+        };
         assert!(rect.contains(Vec2 { x: 10., y: 10. }))
     }
 
     #[test]
     fn rect_contains_limits() {
-        let rect = Rect { x: 32., y: 32., width: 32., height: 32. };
+        let rect = Rect {
+            x: 32.,
+            y: 32.,
+            width: 32.,
+            height: 32.,
+        };
         assert!(rect.contains(Vec2 { x: 32., y: 32. }));
 
         assert!(rect.contains(Vec2 { x: 64., y: 64. }));
@@ -60,9 +69,19 @@ mod tests {
 
     #[test]
     fn rect_position() {
-        let rect = Rect { x: 32., y: 32., width: 32., height: 32. };
+        let rect = Rect {
+            x: 32.,
+            y: 32.,
+            width: 32.,
+            height: 32.,
+        };
         assert_eq!(rect.position(), Vec2 { x: 32., y: 32. });
-        let rect = Rect { x: 300., y: 32., width: 32., height: 32. };
+        let rect = Rect {
+            x: 300.,
+            y: 32.,
+            width: 32.,
+            height: 32.,
+        };
         assert_eq!(rect.position(), Vec2 { x: 300., y: 32. })
     }
 }
