@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
-use ui::{button::Button, Ui};
+use ui::{button::Button, Ui, WidgetId};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -43,6 +43,7 @@ struct State {
     index_buffer: wgpu::Buffer,
     render_pipeline: wgpu::RenderPipeline,
     ui: Ui,
+    btn_id: WidgetId,
 }
 
 impl State {
@@ -153,7 +154,7 @@ impl State {
         let mut btn = Button::new("Lorem ipsum", context.clone());
         btn.set_position(glam::Vec2 { x: 0., y: 200. });
         btn.set_paddings((10., 20., 20., 10.).into());
-        ui.add(Box::new(btn));
+        let btn_id = ui.add(Box::new(btn));
 
         let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
         window.set_position((100., 50.).into());
@@ -165,11 +166,23 @@ impl State {
             render_pipeline,
             ui,
             context,
+            btn_id,
         }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
         self.ui.process_events(event);
+
+        if let Some(btn) = self.ui.get(self.btn_id) {
+            if btn.emitted(ui::button::ButtonEvent::Click as u32) {
+                println!("CLICK");
+            }
+            // for event in btn.events() {
+            // match event {
+
+            // }
+            // }
+        }
 
         false
     }

@@ -1,4 +1,4 @@
-use super::Widget;
+use super::{Widget, WidgetEvent};
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
 use crate::graphics::{
@@ -11,11 +11,13 @@ use glam::{Vec2, Vec4};
 use wgpu::RenderPass;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
-#[derive(Debug, PartialEq)]
-pub enum Event {
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum ButtonEvent {
     Click,
     Hover,
 }
+
+impl WidgetEvent for ButtonEvent {}
 
 pub struct Button<'a> {
     rect: RectangleShape,
@@ -23,7 +25,7 @@ pub struct Button<'a> {
     position: Vec2,
     mouse_position: Vec2,
     paddings: Vec4,
-    events: Vec<Event>,
+    events: Vec<ButtonEvent>,
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -81,13 +83,23 @@ impl<'a> Button<'a> {
     pub fn size(&self) -> &Vec2 {
         self.rect.size()
     }
-
-    pub fn events(&mut self) -> std::vec::Drain<Event> {
-        self.events.drain(..)
-    }
 }
 
 impl<'a> Widget for Button<'a> {
+    // fn events(&mut self) -> std::vec::Drain<Box<dyn WidgetEvent>> {
+    //     self.events.drain(..)
+    // }
+
+    fn emitted(&mut self, event: u32) -> bool {
+        !self
+            .events
+            .drain(..)
+            .filter(|e| *e as u32 == event)
+            .collect::<Vec<_>>()
+            .is_empty()
+        // false
+    }
+
     fn update(&mut self, _dt: f32) {
         // Calculate paddings
         let label_bounds = self.label.bounds();
@@ -114,7 +126,7 @@ impl<'a> Widget for Button<'a> {
 
                 if bounds.contains(self.mouse_position) {
                     self.rect.set_fill_color(GREEN);
-                    self.events.push(Event::Hover);
+                    self.events.push(ButtonEvent::Hover);
                 } else {
                     self.rect.set_fill_color(RED);
                 }
@@ -128,7 +140,7 @@ impl<'a> Widget for Button<'a> {
                     if bounds.contains(self.mouse_position) {
                         match *state {
                             ElementState::Pressed => {
-                                self.events.push(Event::Click);
+                                self.events.push(ButtonEvent::Click);
                                 self.rect.set_fill_color(BLUE);
                             }
                             ElementState::Released => {

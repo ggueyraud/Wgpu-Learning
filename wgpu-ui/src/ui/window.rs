@@ -1,8 +1,8 @@
 use glam::Vec2;
-use winit::event::{ElementState, MouseButton, WindowEvent};
+use winit::event::{ElementState, MouseButton};
 
-use super::button::{Button, Event};
-use super::Widget;
+use super::button::{Button, ButtonEvent};
+use super::{Widget, WidgetEvent};
 use crate::graphics::shape::{RectangleShape, Shape};
 use crate::graphics::text::Text;
 use crate::graphics::{
@@ -10,6 +10,12 @@ use crate::graphics::{
     Drawable, Transformable,
 };
 use crate::{Ctx, ASSETS};
+
+pub enum WindowEvent {
+    Close,
+}
+
+impl WidgetEvent for WindowEvent {}
 
 pub struct Window<'a> {
     title: Text<'a>,
@@ -19,6 +25,7 @@ pub struct Window<'a> {
     click_position: Option<Vec2>,
     visible: bool,
     close_btn: Button<'a>,
+    events: Vec<ButtonEvent>,
 }
 
 impl<'a> Window<'a> {
@@ -44,6 +51,7 @@ impl<'a> Window<'a> {
             click_position: None,
             visible: true,
             close_btn,
+            events: Vec::new(),
         };
 
         window.set_position((0., 0.).into());
@@ -57,6 +65,19 @@ impl<'a> Window<'a> {
 }
 
 impl<'a> Widget for Window<'a> {
+    // fn events(&mut self) -> std::vec::Drain<Box<dyn super::WidgetEvent>> {
+    //     self.events.drain(..)
+    // }
+
+    fn emitted(&mut self, event: u32) -> bool {
+        !self
+            .events
+            .drain(..)
+            .filter(|e| *e as u32 == event)
+            .collect::<Vec<_>>()
+            .is_empty()
+    }
+
     fn process_events(&mut self, event: &winit::event::WindowEvent) {
         // Prevent events handling if widget is not displayed
         if !self.visible {
@@ -65,18 +86,22 @@ impl<'a> Widget for Window<'a> {
 
         self.close_btn.process_events(event);
 
-        if !self
-            .close_btn
-            .events()
-            .filter(|e| e == &Event::Click)
-            .collect::<Vec<_>>()
-            .is_empty()
-        {
+        if self.close_btn.emitted(ButtonEvent::Click as u32) {
             self.set_visibility(false);
         }
 
+        // if !self
+        //     .close_btn
+        //     .events()
+        //     .filter(|e| *e == &ButtonEvent::Click)
+        //     .collect::<Vec<_>>()
+        //     .is_empty()
+        // {
+        //     self.set_visibility(false);
+        // }
+
         match event {
-            WindowEvent::MouseInput {
+            winit::event::WindowEvent::MouseInput {
                 state,
                 button: MouseButton::Left,
                 ..
@@ -86,7 +111,6 @@ impl<'a> Widget for Window<'a> {
                         let titlebar_bounds = self.titlebar.bounds();
                         // Check if click inside titlebar, if so, capture the click position
                         if titlebar_bounds.contains(self.mouse_position) {
-                            println!("Click detected on titlebar");
                             // Calculate difference between mouse position and titlebar position
                             self.click_position = Some(
                                 (
@@ -102,7 +126,7 @@ impl<'a> Widget for Window<'a> {
                     }
                 }
             }
-            WindowEvent::CursorMoved { position, .. } => {
+            winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_position = (position.x as f32, position.y as f32).into();
 
                 if let Some(click_position) = self.click_position {
