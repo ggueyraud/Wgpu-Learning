@@ -60,9 +60,12 @@ pub trait WidgetEvent {}
 pub trait Widget: Drawable + Transformable {
     fn process_events(&mut self, event: &WindowEvent);
 
-    // fn events(&mut self) -> std::vec::Drain<Box<dyn WidgetEvent>>;
+    fn events(&mut self, event_handler: Box<dyn Fn(u32)>);
 
     fn emitted(&mut self, event: u32) -> bool;
 
     fn update(&mut self, _dt: f32) {}
+
+    fn set_visibility(&mut self, visible: bool);
+    fn visible(&self) -> bool;
 }

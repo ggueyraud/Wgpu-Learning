@@ -17,6 +17,15 @@ pub enum ButtonEvent {
     Hover,
 }
 
+impl From<u32> for ButtonEvent {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => Self::Click,
+            _ => Self::Hover,
+        }
+    }
+}
+
 impl WidgetEvent for ButtonEvent {}
 
 pub struct Button<'a> {
@@ -26,6 +35,7 @@ pub struct Button<'a> {
     mouse_position: Vec2,
     paddings: Vec4,
     events: Vec<ButtonEvent>,
+    visible: bool,
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -67,6 +77,7 @@ impl<'a> Button<'a> {
             mouse_position: Default::default(),
             paddings: (0., 0., 0., 0.).into(),
             events: Vec::new(),
+            visible: true,
         }
     }
 
@@ -86,9 +97,17 @@ impl<'a> Button<'a> {
 }
 
 impl<'a> Widget for Button<'a> {
-    // fn events(&mut self) -> std::vec::Drain<Box<dyn WidgetEvent>> {
-    //     self.events.drain(..)
-    // }
+    fn set_visibility(&mut self, visibility: bool) {
+        self.visible = visibility;
+    }
+
+    fn visible(&self) -> bool {
+        self.visible
+    }
+
+    fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {
+        self.events.drain(..).for_each(|e| event_handler(e as u32));
+    }
 
     fn emitted(&mut self, event: u32) -> bool {
         !self
@@ -97,7 +116,6 @@ impl<'a> Widget for Button<'a> {
             .filter(|e| *e as u32 == event)
             .collect::<Vec<_>>()
             .is_empty()
-        // false
     }
 
     fn update(&mut self, _dt: f32) {

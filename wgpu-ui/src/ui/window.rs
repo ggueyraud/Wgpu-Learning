@@ -58,16 +58,12 @@ impl<'a> Window<'a> {
 
         window
     }
-
-    pub fn set_visibility(&mut self, visibility: bool) {
-        self.visible = visibility;
-    }
 }
 
 impl<'a> Widget for Window<'a> {
-    // fn events(&mut self) -> std::vec::Drain<Box<dyn super::WidgetEvent>> {
-    //     self.events.drain(..)
-    // }
+    fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {
+        self.events.drain(..).for_each(|e| event_handler(e as u32));
+    }
 
     fn emitted(&mut self, event: u32) -> bool {
         !self
@@ -141,6 +137,14 @@ impl<'a> Widget for Window<'a> {
             }
             _ => (),
         }
+    }
+
+    fn set_visibility(&mut self, visibility: bool) {
+        self.visible = visibility;
+    }
+
+    fn visible(&self) -> bool {
+        self.visible
     }
 }
 

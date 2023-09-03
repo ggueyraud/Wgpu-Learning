@@ -2,11 +2,16 @@ use assets::Assets;
 use graphics::{text::TextBrush, Transformable, Vertex};
 use once_cell::sync::{Lazy, OnceCell};
 use std::{
+    cell::RefCell,
     path::Path,
+    rc::Rc,
     sync::{Arc, Mutex},
     time::Instant,
 };
-use ui::{button::Button, Ui, WidgetId};
+use ui::{
+    button::{Button, ButtonEvent},
+    Ui, Widget, WidgetId,
+};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -44,6 +49,7 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
     ui: Ui,
     btn_id: WidgetId,
+    window_id: WidgetId,
 }
 
 impl State {
@@ -158,7 +164,7 @@ impl State {
 
         let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
         window.set_position((100., 50.).into());
-        ui.add(Box::new(window));
+        let window_id = ui.add(Box::new(window));
 
         Self {
             surface,
@@ -167,21 +173,25 @@ impl State {
             ui,
             context,
             btn_id,
+            window_id,
         }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
         self.ui.process_events(event);
 
-        if let Some(btn) = self.ui.get(self.btn_id) {
-            if btn.emitted(ui::button::ButtonEvent::Click as u32) {
-                println!("CLICK");
-            }
-            // for event in btn.events() {
-            // match event {
+        let visible = Rc::new(RefCell::new(false));
 
-            // }
-            // }
+        if let Some(btn) = self.ui.get(self.btn_id) {
+            if btn.emitted(ButtonEvent::Click as u32) {
+                (*visible.borrow_mut()) = true;
+            }
+        }
+
+        if let Some(window) = self.ui.get(self.window_id) {
+            if !window.visible() && *visible.borrow() {
+                window.set_visibility(*visible.borrow());
+            }
         }
 
         false
