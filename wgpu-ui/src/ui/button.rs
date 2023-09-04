@@ -48,7 +48,7 @@ impl<'a> Transformable for Button<'a> {
         self.label.set_position(position);
         self.rect.set_position(position);
 
-        self.update(0.);
+        self.update();
     }
 }
 
@@ -88,7 +88,7 @@ impl<'a> Button<'a> {
     pub fn set_paddings(&mut self, paddings: Vec4) {
         self.paddings = paddings;
 
-        self.update(0.);
+        self.update();
     }
 
     pub fn size(&self) -> &Vec2 {
@@ -122,7 +122,7 @@ impl<'a> Widget for Button<'a> {
             .is_empty()
     }
 
-    fn update(&mut self, _dt: f32) {
+    fn update(&mut self) {
         // Calculate paddings
         let label_bounds = self.label.bounds();
         let size = Vec2 {

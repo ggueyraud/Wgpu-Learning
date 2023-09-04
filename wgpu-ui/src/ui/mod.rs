@@ -41,8 +41,8 @@ impl Ui {
             .for_each(|(_, w)| w.process_events(event));
     }
 
-    pub fn update(&mut self, dt: f32) {
-        self.widgets.iter_mut().for_each(|(_, w)| w.update(dt));
+    pub fn update(&mut self) {
+        self.widgets.iter_mut().for_each(|(_, w)| w.update());
     }
 
     pub fn draw<'a>(
@@ -68,7 +68,7 @@ pub trait Widget: Drawable + Transformable {
         false
     }
 
-    fn update(&mut self, _dt: f32) {}
+    fn update(&mut self) {}
 
     fn set_visibility(&mut self, visible: bool);
     fn visible(&self) -> bool;

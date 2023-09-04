@@ -163,9 +163,7 @@ impl State {
         btn.set_paddings((10., 20., 20., 10.).into());
         btn.events(Box::new(|event| {
             let v = ButtonEvent::Click as u32;
-            if let v = event {
-                   
-            } 
+            if let v = event {}
         }));
         let btn_id = ui.add(Box::new(btn));
 
@@ -222,7 +220,7 @@ impl State {
         false
     }
 
-    fn update(&mut self, dt: f32) {
+    fn update(&mut self) {
         // self.ui.update(dt);
     }
 
@@ -328,10 +326,10 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let now = Instant::now();
-            let dt = now.duration_since(last_frame_time);
-            last_frame_time = now;
-            state.update(dt.as_secs_f32());
+            // let now = Instant::now();
+            // let dt = now.duration_since(last_frame_time);
+            // last_frame_time = now;
+            state.update();
 
             match state.render() {
                 Ok(_) => {}

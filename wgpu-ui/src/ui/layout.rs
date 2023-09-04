@@ -38,7 +38,7 @@ impl Layout {
         self.counter += 1;
         self.widgets.insert(self.counter, widget);
 
-        self.update(0.);
+        self.update();
     }
 
     pub fn direction(&self) -> &Direction {
@@ -48,13 +48,13 @@ impl Layout {
     pub fn set_spacing(&mut self, spacing: f32) {
         self.spacing = spacing;
 
-        self.update(0.);
+        self.update();
     }
 
     pub fn set_direction(&mut self, direction: Direction) {
         self.direction = direction;
 
-        self.update(0.);
+        self.update();
     }
 }
 
@@ -66,7 +66,7 @@ impl Transformable for Layout {
     fn set_position(&mut self, position: Vec2) {
         self.position = position;
 
-        self.update(0.);
+        self.update();
     }
 }
 
@@ -85,7 +85,7 @@ impl Widget for Layout {
             .for_each(|(_, widget)| widget.process_events(event));
     }
 
-    fn update(&mut self, _dt: f32) {
+    fn update(&mut self) {
         let mut biggest_dimensions = Vec2::default();
 
         self.widgets.iter().for_each(|(_, widget)| {
@@ -120,7 +120,7 @@ impl Widget for Layout {
 
         self.widgets
             .iter_mut()
-            .for_each(|(_, widget)| widget.update(0.));
+            .for_each(|(_, widget)| widget.update());
     }
 
     fn set_visibility(&mut self, visible: bool) {
