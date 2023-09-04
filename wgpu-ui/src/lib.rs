@@ -10,6 +10,7 @@ use std::{
 };
 use ui::{
     button::{Button, ButtonEvent},
+    layout::Layout,
     Ui, Widget, WidgetId,
 };
 use wgpu::util::DeviceExt;
@@ -160,11 +161,35 @@ impl State {
         let mut btn = Button::new("Lorem ipsum", context.clone());
         btn.set_position(glam::Vec2 { x: 0., y: 200. });
         btn.set_paddings((10., 20., 20., 10.).into());
+        btn.events(Box::new(|event| {
+            let v = ButtonEvent::Click as u32;
+            if let v = event {
+                   
+            } 
+        }));
         let btn_id = ui.add(Box::new(btn));
 
         let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
         window.set_position((100., 50.).into());
         let window_id = ui.add(Box::new(window));
+
+        let mut layout = Layout::new(ui::layout::Direction::Horizontal);
+        layout.set_position((100., 0.).into());
+        layout.set_spacing(20.);
+        layout.add_widget(Box::new(Button::new("Lorem ipsum", context.clone())));
+        layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
+        layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
+        layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
+        ui.add(Box::new(layout));
+        // {
+        //     if let Some(btn) = ui.get(btn1) {
+        //         layout.add_widget(btn);
+        //     }
+
+        // }
+        // if let Some(btn) = ui.get(btn2) {
+        //     layout.add_widget(btn);
+        // }
 
         Self {
             surface,
