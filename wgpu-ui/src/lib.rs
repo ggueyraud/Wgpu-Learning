@@ -6,7 +6,7 @@ use std::{
     path::Path,
     rc::Rc,
     sync::{Arc, Mutex},
-    time::Instant,
+    collections::HashMap,
 };
 use ui::{
     button::{Button, ButtonEvent},
@@ -30,7 +30,7 @@ const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 static TEXT_BRUSH: OnceCell<TextBrush> = OnceCell::new();
 static ASSETS: Lazy<Assets> = Lazy::new(|| {
     let mut assets = Assets::new();
-    assets.load_font(Path::new("assets/Roboto.ttf"));
+    let _ = assets.load_font(Path::new("assets/Roboto.ttf"));
 
     assets
 });
@@ -267,19 +267,9 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            // render_pass.set_pipeline(&context.render_pipeline);
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             self.ui.draw(&mut render_pass, &self.render_pipeline);
-            // for widget in self.ui.widgets.iter_mut() {
-            //     render_pass.set_pipeline(&self.render_pipeline);
-            //     widget.draw(&mut render_pass);
-            // }
-
-            // context.text_brush.draw(&mut render_pass);
-            // TEXT_BRUSH.get().unwrap().draw(&mut render_pass);
-            render_pass.set_pipeline(TEXT_BRUSH.get().unwrap().render_pipeline());
-            // self.text.draw(&mut render_pass);
         }
 
         let context = self.context.lock().unwrap();
@@ -295,7 +285,6 @@ pub async fn run() {
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     window.set_title("Wgpu Basic UI");
     let mut state = State::new(&window).await;
-    let mut last_frame_time = Instant::now();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -326,9 +315,6 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            // let now = Instant::now();
-            // let dt = now.duration_since(last_frame_time);
-            // last_frame_time = now;
             state.update();
 
             match state.render() {

@@ -41,10 +41,6 @@ impl Ui {
             .for_each(|(_, w)| w.process_events(event));
     }
 
-    pub fn update(&mut self) {
-        self.widgets.iter_mut().for_each(|(_, w)| w.update());
-    }
-
     pub fn draw<'a>(
         &'a mut self,
         render_pass: &mut RenderPass<'a>,
@@ -62,9 +58,9 @@ pub trait WidgetEvent {}
 pub trait Widget: Drawable + Transformable {
     fn process_events(&mut self, event: &WindowEvent);
 
-    fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {}
+    fn events(&mut self, _event_handler: Box<dyn Fn(u32)>) {}
 
-    fn emitted(&mut self, event: u32) -> bool {
+    fn emitted(&mut self, _event: u32) -> bool {
         false
     }
 

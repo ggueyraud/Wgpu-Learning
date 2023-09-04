@@ -106,7 +106,7 @@ impl<'a> Widget for Button<'a> {
     }
 
     fn size(&self) -> &Vec2 {
-        &self.rect.size()
+        self.rect.size()
     }
 
     fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {
@@ -157,22 +157,19 @@ impl<'a> Widget for Button<'a> {
                 state,
                 button: MouseButton::Left,
                 ..
-            } => match state {
-                ElementState::Pressed => {
-                    if bounds.contains(self.mouse_position) {
-                        match *state {
-                            ElementState::Pressed => {
-                                self.events.push(ButtonEvent::Click);
-                                self.rect.set_fill_color(BLUE);
-                            }
-                            ElementState::Released => {
-                                self.rect.set_fill_color(RED);
-                            }
+            } => {
+                if state == &ElementState::Pressed && bounds.contains(self.mouse_position) {
+                    match *state {
+                        ElementState::Pressed => {
+                            self.events.push(ButtonEvent::Click);
+                            self.rect.set_fill_color(BLUE);
+                        }
+                        ElementState::Released => {
+                            self.rect.set_fill_color(RED);
                         }
                     }
                 }
-                _ => {}
-            },
+            }
             _ => {}
         }
     }
