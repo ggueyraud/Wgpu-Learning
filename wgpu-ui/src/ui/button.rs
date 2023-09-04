@@ -105,6 +105,10 @@ impl<'a> Widget for Button<'a> {
         self.visible
     }
 
+    fn size(&self) -> &Vec2 {
+        &self.rect.size()
+    }
+
     fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {
         self.events.drain(..).for_each(|e| event_handler(e as u32));
     }

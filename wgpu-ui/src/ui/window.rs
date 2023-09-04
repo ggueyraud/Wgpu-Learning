@@ -26,6 +26,7 @@ pub struct Window<'a> {
     visible: bool,
     close_btn: Button<'a>,
     events: Vec<ButtonEvent>,
+    size: Vec2,
 }
 
 impl<'a> Window<'a> {
@@ -44,6 +45,7 @@ impl<'a> Window<'a> {
         close_btn.set_character_size(16.);
 
         let mut window = Self {
+            size: *titlebar.size() + *body.size(),
             titlebar,
             body,
             title: Text::new(context, title, ASSETS.get_font("Roboto.ttf").unwrap(), 16.),
@@ -145,6 +147,10 @@ impl<'a> Widget for Window<'a> {
 
     fn visible(&self) -> bool {
         self.visible
+    }
+
+    fn size(&self) -> &Vec2 {
+        &self.size
     }
 }
 

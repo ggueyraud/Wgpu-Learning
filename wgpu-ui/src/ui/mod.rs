@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 
 use crate::graphics::{Drawable, Transformable};
+use glam::Vec2;
 use wgpu::RenderPass;
 use winit::event::WindowEvent;
 
 pub mod button;
+pub mod layout;
 pub mod window;
 
-pub type WidgetId = i16;
+pub type WidgetId = u16;
 
 pub struct Ui {
     widgets: HashMap<WidgetId, Box<dyn Widget>>,
-    counter: i16,
+    counter: u16,
 }
 
 impl Ui {
@@ -60,12 +62,16 @@ pub trait WidgetEvent {}
 pub trait Widget: Drawable + Transformable {
     fn process_events(&mut self, event: &WindowEvent);
 
-    fn events(&mut self, event_handler: Box<dyn Fn(u32)>);
+    fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {}
 
-    fn emitted(&mut self, event: u32) -> bool;
+    fn emitted(&mut self, event: u32) -> bool {
+        false
+    }
 
     fn update(&mut self, _dt: f32) {}
 
     fn set_visibility(&mut self, visible: bool);
     fn visible(&self) -> bool;
+
+    fn size(&self) -> &Vec2;
 }
