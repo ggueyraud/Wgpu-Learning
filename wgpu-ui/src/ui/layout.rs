@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use glam::Vec2;
 
@@ -13,7 +13,7 @@ pub enum Direction {
 
 pub struct Layout {
     direction: Direction,
-    widgets: HashMap<WidgetId, Box<dyn Widget>>,
+    widgets: BTreeMap<WidgetId, Box<dyn Widget>>,
     position: Vec2,
     visible: bool,
     size: Vec2,
@@ -25,7 +25,7 @@ impl Layout {
     pub fn new(direction: Direction) -> Self {
         Self {
             direction,
-            widgets: HashMap::new(),
+            widgets: BTreeMap::new(),
             position: Default::default(),
             visible: true,
             size: Default::default(),
@@ -100,10 +100,14 @@ impl Widget for Layout {
             }
         });
 
+        println!("\nBiggest widget in layout {biggest_dimensions:?}\n");
+
         self.widgets
             .iter_mut()
             .enumerate()
             .for_each(|(i, (_, widget))| {
+                widget.set_size(biggest_dimensions);
+
                 let position = match self.direction {
                     Direction::Horizontal => Vec2 {
                         x: (biggest_dimensions.x + self.spacing) * i as f32,
@@ -114,6 +118,7 @@ impl Widget for Layout {
                         y: (biggest_dimensions.y + self.spacing) * i as f32,
                     },
                 } + self.position;
+                println!("{i} New position: {position:?}");
 
                 widget.set_position(position);
             });
