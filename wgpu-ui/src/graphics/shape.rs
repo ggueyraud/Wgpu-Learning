@@ -1,6 +1,6 @@
 use crate::{
     math::{pixels_to_clip, Rect},
-    Ctx,
+    Ctx, PIPELINES,
 };
 
 use super::{
@@ -158,7 +158,9 @@ impl Transformable for RectangleShape {
 }
 
 impl Drawable for RectangleShape {
-    fn draw<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>) {
+    fn draw<'b>(&'b mut self, render_pass: &mut wgpu::RenderPass<'b>) {
+        render_pass.set_pipeline(&PIPELINES.get().unwrap().get("std").unwrap().0);
+
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);
     }

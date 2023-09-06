@@ -38,17 +38,15 @@ impl Ui {
     pub fn process_events(&mut self, event: &WindowEvent) {
         self.widgets
             .iter_mut()
-            .for_each(|(_, w)| w.process_events(event));
+            .for_each(|(_, widget)| widget.process_events(event));
     }
 
     pub fn draw<'a>(
         &'a mut self,
         render_pass: &mut RenderPass<'a>,
-        render_pipeline: &'a wgpu::RenderPipeline,
     ) {
-        self.widgets.iter_mut().for_each(|(_, w)| {
-            render_pass.set_pipeline(render_pipeline);
-            w.draw(render_pass);
+        self.widgets.iter_mut().for_each(|(_, widget)| {
+            widget.draw(render_pass);
         });
     }
 }
@@ -70,4 +68,5 @@ pub trait Widget: Drawable + Transformable {
     fn visible(&self) -> bool;
 
     fn size(&self) -> &Vec2;
+    fn set_size(&mut self, size: Vec2) {}
 }

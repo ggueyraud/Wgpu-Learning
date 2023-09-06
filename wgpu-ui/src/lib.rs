@@ -27,6 +27,7 @@ mod ui;
 
 const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 
+static PIPELINES: OnceCell<HashMap<String, (wgpu::RenderPipeline, Option<wgpu::BindGroupLayout>)>> = OnceCell::new();
 static TEXT_BRUSH: OnceCell<TextBrush> = OnceCell::new();
 static ASSETS: Lazy<Assets> = Lazy::new(|| {
     let mut assets = Assets::new();
@@ -35,6 +36,7 @@ static ASSETS: Lazy<Assets> = Lazy::new(|| {
     assets
 });
 
+#[derive(Debug)]
 pub struct Context {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -47,10 +49,9 @@ struct State {
     context: Arc<Mutex<Context>>,
     surface: wgpu::Surface,
     index_buffer: wgpu::Buffer,
-    render_pipeline: wgpu::RenderPipeline,
     ui: Ui,
-    btn_id: WidgetId,
-    window_id: WidgetId,
+    // btn_id: WidgetId,
+    // window_id: WidgetId,
 }
 
 impl State {
@@ -151,77 +152,67 @@ impl State {
 
         let _ = TEXT_BRUSH.set(text_brush);
 
+        let mut render_pipelines = HashMap::new();
+        render_pipelines.insert("std".to_string(), (render_pipeline, None));
+        let _ = PIPELINES.set(render_pipelines);
+
         let context = Arc::new(Mutex::new(Context {
             config,
             device,
-            queue,
+            queue
         }));
 
         let mut ui = Ui::new();
-        let mut btn = Button::new("Lorem ipsum", context.clone());
-        btn.set_position(glam::Vec2 { x: 0., y: 200. });
-        btn.set_paddings((10., 20., 20., 10.).into());
-        btn.events(Box::new(|event| {
-            let v = ButtonEvent::Click as u32;
-            if let v = event {}
-        }));
-        let btn_id = ui.add(Box::new(btn));
+        // let mut btn = Button::new("Lorem ipsum", context.clone());
+        // btn.set_position(glam::Vec2 { x: 0., y: 200. });
+        // btn.set_paddings((10., 20., 20., 10.).into());
+        // btn.events(Box::new(|event| {
+        //     let v = ButtonEvent::Click as u32;
+        //     if let v = event {}
+        // }));
+        // let btn_id = ui.add(Box::new(btn));
 
-        let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
-        window.set_position((100., 50.).into());
-        let window_id = ui.add(Box::new(window));
+        // let mut window = ui::window::Window::new(context.clone(), "Lorem ipsum");
+        // window.set_position((100., 50.).into());
+        // let window_id = ui.add(Box::new(window));
 
-        let mut layout = Layout::new(ui::layout::Direction::Horizontal);
-        layout.set_position((100., 0.).into());
+        let mut layout = Layout::new(ui::layout::Direction::Vertical);
+        layout.set_position((100., 100.).into());
         layout.set_spacing(20.);
         layout.add_widget(Box::new(Button::new("Lorem ipsum", context.clone())));
         layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
         layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
         layout.add_widget(Box::new(Button::new("dolor sit amet", context.clone())));
         ui.add(Box::new(layout));
-        // {
-        //     if let Some(btn) = ui.get(btn1) {
-        //         layout.add_widget(btn);
-        //     }
-
-        // }
-        // if let Some(btn) = ui.get(btn2) {
-        //     layout.add_widget(btn);
-        // }
 
         Self {
             surface,
             index_buffer,
-            render_pipeline,
             ui,
             context,
-            btn_id,
-            window_id,
+            // btn_id,
+            // window_id,
         }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
         self.ui.process_events(event);
 
-        let visible = Rc::new(RefCell::new(false));
+        // let visible = Rc::new(RefCell::new(false));
 
-        if let Some(btn) = self.ui.get(self.btn_id) {
-            if btn.emitted(ButtonEvent::Click as u32) {
-                (*visible.borrow_mut()) = true;
-            }
-        }
+        // if let Some(btn) = self.ui.get(self.btn_id) {
+        //     if btn.emitted(ButtonEvent::Click as u32) {
+        //         (*visible.borrow_mut()) = true;
+        //     }
+        // }
 
-        if let Some(window) = self.ui.get(self.window_id) {
-            if !window.visible() && *visible.borrow() {
-                window.set_visibility(*visible.borrow());
-            }
-        }
+        // if let Some(window) = self.ui.get(self.window_id) {
+        //     if !window.visible() && *visible.borrow() {
+        //         window.set_visibility(*visible.borrow());
+        //     }
+        // }
 
         false
-    }
-
-    fn update(&mut self) {
-        // self.ui.update(dt);
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -269,7 +260,8 @@ impl State {
 
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            self.ui.draw(&mut render_pass, &self.render_pipeline);
+            // self.ui.draw(&mut render_pass, &self.render_pipeline);
+            self.ui.draw(&mut render_pass);
         }
 
         let context = self.context.lock().unwrap();
@@ -315,8 +307,6 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            state.update();
-
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost

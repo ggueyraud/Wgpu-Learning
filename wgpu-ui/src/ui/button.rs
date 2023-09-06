@@ -36,6 +36,7 @@ pub struct Button<'a> {
     paddings: Vec4,
     events: Vec<ButtonEvent>,
     visible: bool,
+    size: Vec2
 }
 
 impl<'a> Transformable for Button<'a> {
@@ -78,6 +79,7 @@ impl<'a> Button<'a> {
             paddings: (0., 0., 0., 0.).into(),
             events: Vec::new(),
             visible: true,
+            size: Default::default()
         }
     }
 
@@ -89,10 +91,6 @@ impl<'a> Button<'a> {
         self.paddings = paddings;
 
         self.update();
-    }
-
-    pub fn size(&self) -> &Vec2 {
-        self.rect.size()
     }
 }
 
@@ -107,6 +105,14 @@ impl<'a> Widget for Button<'a> {
 
     fn size(&self) -> &Vec2 {
         self.rect.size()
+    }
+
+    fn set_size(&mut self, size: Vec2) {
+        let mut size = size;
+        size.x += self.paddings.x + self.paddings.w;
+        size.y += self.paddings.y + self.paddings.z;
+        self.size = size;
+        self.rect.set_size(size);
     }
 
     fn events(&mut self, event_handler: Box<dyn Fn(u32)>) {
@@ -130,11 +136,16 @@ impl<'a> Widget for Button<'a> {
             y: label_bounds.height + self.paddings.y + self.paddings.z,
         };
         self.rect.set_size(size);
+        // self.rect.set_size(self.size);
 
         let label_position = Vec2 {
             x: self.position.x + (size.x - label_bounds.width) / 2.,
             y: self.position.y + (size.y - label_bounds.height) / 2.,
         };
+        // let label_position = Vec2 {
+        //     x: self.position.x + (self.size.x.ceil() - label_bounds.width) / 2.,
+        //     y: self.position.y + (self.size.y.ceil() - label_bounds.height) / 2.,
+        // };
         self.label.set_position(label_position);
     }
 
